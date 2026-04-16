@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' hide Path;
+import 'package:geolocator/geolocator.dart';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../services/api_service.dart';
 import 'dart:convert';
+import 'dart:ui';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,435 +17,207 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isChecking = false;
-  String _status = 'Ready to check attendance';
-  String _locationInfo = '';
+  bool _isCheckedIn = false;
+  String _status = 'Ready for action';
+  String _userName = 'Tasrul Islam';
+  String _orgName = 'Ranihati Construction Private Limited';
+  LatLng? _currentLocation;
+  final MapController _mapController = MapController();
+
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _initLocation();
+    
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userName = prefs.getString('user_name') ?? 'User Name';
+      _orgName = prefs.getString('org_name') ?? 'Official Organization';
+      _isCheckedIn = prefs.getBool('is_checked_in') ?? false;
+    });
+  }
+
+  Future<void> _initLocation() async {
+    try {
+      final position = await LocationService.getCurrentLocation();
+      setState(() {
+        _currentLocation = LatLng(position.latitude, position.longitude);
+      });
+      _mapController.move(_currentLocation!, 16);
+    } catch (e) {
+      print('Location error: $e');
+    }
+  }
+
+  Future<void> _toggleAttendance() async {
+    if (_isCheckedIn) {
+      await _checkOut();
+    } else {
+      await _checkIn();
+    }
+  }
 
   Future<void> _checkIn() async {
-    setState(() {
-      _isChecking = true;
-      _status = 'Getting your location...';
-      _locationInfo = '';
-    });
-
+    setState(() { _isChecking = true; _status = 'Locking GPS...'; });
     try {
-      // Get current location
-      final position = await LocationService.getCurrentLocation();
-
-      // Update location info
-      setState(() {
-        _locationInfo = '📍 ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
-        _status = 'Location acquired. Please take a photo...';
-      });
-
-      print('DEBUG - Current Location: ${position.latitude}, ${position.longitude}');
-
-      // Take photo
+      final pos = await LocationService.getCurrentLocation();
+      setState(() { _currentLocation = LatLng(pos.latitude, pos.longitude); _status = 'GPS Locked. Take Selfie'; });
+      _mapController.move(_currentLocation!, 17);
+      
       final photo = await CameraService.takePicture();
-      if (photo == null) {
-        setState(() => _status = 'Photo capture cancelled');
-        return;
-      }
+      if (photo == null) { setState(() => _status = 'Cancelled'); return; }
 
-      setState(() => _status = 'Uploading your check-in...');
+      setState(() => _status = 'Verifying Check-in...');
+      final res = await ApiService.checkIn(pos.latitude, pos.longitude, photo);
 
-      // Send check-in request
-      final response = await ApiService.checkIn(
-        position.latitude,
-        position.longitude,
-        photo,
-      );
-
-      print('DEBUG - Response Status: ${response.statusCode}');
-      print('DEBUG - Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          _status = 'Check-in Successful! ✅';
-          _locationInfo = '📊 Checked in at ${TimeOfDay.now().format(context)}';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['message'] ?? 'Check-in successful'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      } else {
-        try {
-          final errorData = json.decode(response.body);
-          final errorMessage = errorData['error'] ?? errorData['message'] ?? 'Unknown error';
-          setState(() => _status = 'Check-in Failed ❌');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        } catch (e) {
-          setState(() => _status = 'Error: ${response.body}');
-        }
-      }
-    } catch (e) {
-      print('DEBUG - Exception: $e');
-      setState(() => _status = 'Connection Error 🌐');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      setState(() => _isChecking = false);
-    }
+      if (res.statusCode == 200) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_checked_in', true);
+        setState(() { _isCheckedIn = true; _status = 'Check-in Confirmed! ✅'; });
+      } else { _showError('Check-in Rejected'); }
+    } catch (e) { _showError('Connection error'); }
+    finally { setState(() => _isChecking = false); }
   }
 
   Future<void> _checkOut() async {
-    setState(() {
-      _isChecking = true;
-      _status = 'Getting your location...';
-      _locationInfo = '';
-    });
-
+    setState(() { _isChecking = true; _status = 'Locking GPS...'; });
     try {
-      final position = await LocationService.getCurrentLocation();
-      setState(() {
-        _locationInfo = '📍 ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
-        _status = 'Location acquired. Please take a photo...';
-      });
+      final pos = await LocationService.getCurrentLocation();
+      setState(() { _currentLocation = LatLng(pos.latitude, pos.longitude); _status = 'GPS Locked. Take Selfie'; });
+      _mapController.move(_currentLocation!, 17);
 
       final photo = await CameraService.takePicture();
-      if (photo == null) {
-        setState(() => _status = 'Photo capture cancelled');
-        return;
-      }
+      if (photo == null) { setState(() => _status = 'Cancelled'); return; }
 
-      setState(() => _status = 'Uploading your check-out...');
+      setState(() => _status = 'Processing Check-out...');
+      final res = await ApiService.checkOut(pos.latitude, pos.longitude, photo);
 
-      final response = await ApiService.checkOut(
-        position.latitude,
-        position.longitude,
-        photo,
-      );
-
-      if (response.statusCode == 200) {
-        setState(() {
-          _status = 'Check-out Successful! ✅';
-          _locationInfo = '📊 Checked out at ${TimeOfDay.now().format(context)}';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Check-out successful'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      } else {
-        final error = json.decode(response.body);
-        setState(() => _status = 'Check-out Failed ❌');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error['error'] ?? 'Unknown error'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() => _status = 'Connection Error 🌐');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      setState(() => _isChecking = false);
-    }
+      if (res.statusCode == 200) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_checked_in', false);
+        setState(() { _isCheckedIn = false; _status = 'Check-out Logged! ✅'; });
+      } else { _showError('Check-out Rejected'); }
+    } catch (e) { _showError('Connection error'); }
+    finally { setState(() => _isChecking = false); }
   }
 
-  Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    Navigator.pushReplacementNamed(context, '/login');
+  void _showError(String m) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red));
   }
 
   @override
   Widget build(BuildContext context) {
+    const Color saffron = Color(0xFFFF9933);
+    const Color green = Color(0xFF138808);
+    
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          'Attendance',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          // 1. Diagonal Flag Background
+          Positioned.fill(
+            child: CustomPaint(
+              painter: FlagBannerPainter(saffron: saffron, green: green),
+            ),
           ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.blue[700],
-        elevation: 1,
-        shadowColor: Colors.black12,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.history, color: Colors.blue[700]),
-            onPressed: () => Navigator.pushNamed(context, '/history'),
-            tooltip: 'Attendance History',
+
+          // 2. Texture Layer (assets/map.png)
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.15,
+              child: Image.asset(
+                'assets/map.png',
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
-          IconButton(
-            icon: Icon(Icons.logout, color: Colors.blue[700]),
-            onPressed: _logout,
-            tooltip: 'Logout',
+
+          // 3. Main Content
+          Column(
+            children: [
+              // TopBar
+              _buildTopBar(saffron),
+
+              // Satellite Map
+              _buildSatelliteMap(saffron),
+
+              // System Status
+              _buildStatusRow(),
+
+              // Attendance Button
+              Expanded(
+                child: Center(
+                  child: _buildAttendanceButton(green),
+                ),
+              ),
+
+              // Guide Section
+              _buildGuideSection(saffron),
+              const SizedBox(height: 25),
+            ],
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
+    );
+  }
+
+  Widget _buildTopBar(Color saffron) {
+    return Container(
+      padding: const EdgeInsets.only(top: 50, left: 24, right: 24, bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.8),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+        ],
+      ),
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Row(
             children: [
-              // Header Card
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Colors.blue[50]!, Colors.white],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.fingerprint,
-                        size: 64,
-                        color: Colors.blue[700],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'RCPL Attendance',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue[800],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap below to mark your attendance',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
+              CircleAvatar(
+                backgroundColor: saffron.withOpacity(0.1),
+                child: Icon(Icons.person_rounded, color: saffron),
               ),
-              
-              const SizedBox(height: 24),
-
-              // Status Card
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.blue[600],
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Current Status',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              _status,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: _getStatusTextColor(),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (_locationInfo.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                _locationInfo,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _getStatusTextColor().withOpacity(0.8),
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Action Buttons
-              if (!_isChecking) ...[
-                Column(
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _checkIn,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green[600],
-                          foregroundColor: Colors.white,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.login, size: 20),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Check In',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _checkOut,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange[600],
-                          foregroundColor: Colors.white,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.logout, size: 20),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Check Out',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else
-                Column(
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
                     Text(
-                      'Processing...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      _userName.toUpperCase(),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A)),
+                    ),
+                    Text(
+                      _orgName,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.4)),
                     ),
                   ],
                 ),
-
-              const SizedBox(height: 24),
-
-              // Help Card
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.help_outline,
-                            color: Colors.blue[600],
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Need Help?',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _buildHelpItem('📍 Ensure location services are enabled'),
-                      _buildHelpItem('📷 Allow camera access for photos'),
-                      _buildHelpItem('🌐 Stay connected to the internet'),
-                      _buildHelpItem('🎯 Be within your assigned geofence area'),
-                    ],
-                  ),
-                ),
+              ),
+              IconButton(icon: const Icon(Icons.history_toggle_off_rounded), onPressed: () {}),
+              IconButton(
+                icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent),
+                onPressed: _logout,
               ),
             ],
           ),
@@ -449,24 +226,79 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHelpItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSatelliteMap(Color saffron) {
+    return Container(
+      height: 220,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10),
+        ],
+      ),
+      child: FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          initialCenter: _currentLocation ?? const LatLng(22.5726, 88.3639),
+          initialZoom: 16,
+        ),
         children: [
-          const SizedBox(width: 4),
-          Text(
-            '• ',
-            style: TextStyle(color: Colors.grey[600]),
+          TileLayer(
+            urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            userAgentPackageName: 'com.palgeo.app',
           ),
-          Expanded(
+          if (_currentLocation != null)
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: _currentLocation!,
+                  width: 60,
+                  height: 60,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, child) => Container(
+                          width: 30 + (30 * _pulseController.value),
+                          height: 30 + (30 * _pulseController.value),
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: saffron.withOpacity(1 - _pulseController.value)),
+                        ),
+                      ),
+                      const Icon(Icons.location_on, color: Colors.red, size: 35),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+      color: Colors.white.withOpacity(0.7),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("SYSTEM STATUS", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
+              Text(_status, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF2E2E2E))),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _isCheckedIn ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: (_isCheckedIn ? Colors.red : Colors.green).withOpacity(0.2)),
+            ),
             child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              _isCheckedIn ? "ON DUTY" : "OFF DUTY",
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: _isCheckedIn ? Colors.red : Colors.green),
             ),
           ),
         ],
@@ -474,17 +306,132 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Color _getStatusColor() {
-    if (_status.contains('Successful')) return Colors.green[50]!;
-    if (_status.contains('Failed') || _status.contains('Error')) return Colors.red[50]!;
-    if (_status.contains('Connection')) return Colors.orange[50]!;
-    return Colors.blue[50]!;
+  Widget _buildAttendanceButton(Color green) {
+    return GestureDetector(
+      onTap: _isChecking ? null : _toggleAttendance,
+      child: Container(
+        width: 200,
+        height: 200,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withOpacity(0.2),
+          border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+        ),
+        child: Center(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              AnimatedBuilder(
+                animation: _pulseController,
+                builder: (context, child) => Container(
+                  width: 160 + (20 * _pulseController.value),
+                  height: 160 + (20 * _pulseController.value),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: (_isCheckedIn ? Colors.red : green).withOpacity(1 - _pulseController.value), width: 2),
+                  ),
+                ),
+              ),
+              Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: _isCheckedIn 
+                      ? [const Color(0xFFFF5252), const Color(0xFFD32F2F)] 
+                      : [const Color(0xFF66BB6A), const Color(0xFF388E3C)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(color: (_isCheckedIn ? Colors.red : green).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10)),
+                  ],
+                ),
+                child: _isChecking 
+                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(_isCheckedIn ? Icons.logout_rounded : Icons.fingerprint_rounded, color: Colors.white, size: 50),
+                        const SizedBox(height: 10),
+                        Text(_isCheckedIn ? "CHECK OUT" : "MARK PRESENT", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                      ],
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  Color _getStatusTextColor() {
-    if (_status.contains('Successful')) return Colors.green[800]!;
-    if (_status.contains('Failed') || _status.contains('Error')) return Colors.red[800]!;
-    if (_status.contains('Connection')) return Colors.orange[800]!;
-    return Colors.blue[800]!;
+  Widget _buildGuideSection(Color saffron) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20)],
+        border: Border.all(color: Colors.white),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: saffron.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+            child: Icon(Icons.verified_user_rounded, color: saffron),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("ATTENDANCE GUIDE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+                const SizedBox(height: 5),
+                Text("Ensure you are within the geo-fence and your face is fully visible for the selfie check.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token');
+    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+  }
+}
+
+class FlagBannerPainter extends CustomPainter {
+  final Color saffron;
+  final Color green;
+  FlagBannerPainter({required this.saffron, required this.green});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    // Saffron Triangle (Top-Left)
+    Path saffronPath = Path();
+    saffronPath.moveTo(0, 0);
+    saffronPath.lineTo(size.width * 0.7, 0);
+    saffronPath.lineTo(0, size.height * 0.45);
+    saffronPath.close();
+    canvas.drawPath(saffronPath, paint..color = saffron);
+
+    // Green Triangle (Bottom-Right)
+    Path greenPath = Path();
+    greenPath.moveTo(size.width, size.height);
+    greenPath.lineTo(size.width * 0.3, size.height);
+    greenPath.lineTo(size.width, size.height * 0.55);
+    greenPath.close();
+    canvas.drawPath(greenPath, paint..color = green);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

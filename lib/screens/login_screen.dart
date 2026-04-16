@@ -64,6 +64,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', data['token']);
         
+        // Save user info from the 'employee' object
+        if (data['employee'] != null) {
+          await prefs.setString('user_name', data['employee']['name'] ?? 'User');
+          await prefs.setString('org_name', data['employee']['admin_name'] ?? 'Official Organization');
+        }
+        
         if (mounted) {
           _navigateToHomeWithFlagTransition();
         }
