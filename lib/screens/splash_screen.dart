@@ -131,6 +131,26 @@ class _SplashScreenState extends State<SplashScreen>
             ),
             child: Stack(
               children: [
+                // 1. Map Background with Radar Animation
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.15,
+                    child: Center(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/map.png',
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                          const RadarAnimation(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
                 // Background Animated Shapes
                 Positioned(
                   top: 100 * (1 - _bgAnimation.value),
@@ -355,3 +375,56 @@ class _LoadingDotsState extends State<LoadingDots> with TickerProviderStateMixin
     );
   }
 }
+
+class RadarAnimation extends StatefulWidget {
+  const RadarAnimation({super.key});
+
+  @override
+  State<RadarAnimation> createState() => _RadarAnimationState();
+}
+
+class _RadarAnimationState extends State<RadarAnimation> with TickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: List.generate(3, (index) {
+            double value = (_controller.value + (index / 3)) % 1.0;
+            return Container(
+              width: MediaQuery.of(context).size.width * 1.5 * value,
+              height: MediaQuery.of(context).size.width * 1.5 * value,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity((1 - value) * 0.4),
+                  width: 1.5,
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
