@@ -243,7 +243,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
         children: [
           TileLayer(
-            urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            // Hybrid View (Satellite + Labels)
+            urlTemplate: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
             userAgentPackageName: 'com.palgeo.app',
           ),
           if (_currentLocation != null)
