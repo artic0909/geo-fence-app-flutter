@@ -1,9 +1,10 @@
-import 'dart:convert';
-import 'dart:ui' show ImageFilter;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -62,8 +63,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         final data = json.decode(response.body);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', data['token']);
+        
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
+          _navigateToHomeWithFlagTransition();
         }
       } else {
         String errorMessage = 'Login failed';
@@ -103,6 +105,110 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     }
   }
 
+  void _navigateToHomeWithFlagTransition() {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
+        transitionDuration: const Duration(milliseconds: 2200),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return Stack(
+            children: [
+              // 1. Current screen fades out
+              FadeTransition(
+                opacity: Tween<double>(begin: 1.0, end: 0.0).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
+                  ),
+                ),
+                child: this.widget,
+              ),
+              
+              // 2. Diagonal Flag Sweep
+              AnimatedBuilder(
+                animation: animation,
+                builder: (context, _) {
+                  return CustomPaint(
+                    size: Size.infinite,
+                    painter: FlagSweepPainter(progress: animation.value),
+                  );
+                },
+              ),
+
+              // 3. Central Location Pin + Red Wave Reveal
+              Center(
+                child: FadeTransition(
+                  opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: const Interval(0.3, 0.6, curve: Curves.easeIn),
+                    ),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Red Pulsing Waves
+                      ...List.generate(3, (index) {
+                        double waveProgress = ((animation.value * 2) + (index / 3)) % 1.0;
+                        return Container(
+                          width: 250 * waveProgress,
+                          height: 250 * waveProgress,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.redAccent.withOpacity((1 - waveProgress) * 0.6),
+                              width: 2,
+                            ),
+                          ),
+                        );
+                      }),
+                      
+                      // Scale transition for the Icon itself
+                      ScaleTransition(
+                        scale: Tween<double>(begin: 0.5, end: 1.3).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: const Interval(0.3, 0.7, curve: Curves.elasticOut),
+                          ),
+                        ),
+                        child: ShaderMask(
+                          shaderCallback: (Rect bounds) {
+                            return const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0xFFFF5252), Color(0xFFD32F2F)],
+                            ).createShader(bounds);
+                          },
+                          child: const Icon(
+                            Icons.location_on,
+                            color: Colors.white,
+                            size: 90,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // 4. New screen appearing after transition
+              FadeTransition(
+                opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: const Interval(0.75, 1.0, curve: Curves.easeIn),
+                  ),
+                ),
+                child: child,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _launchURL() async {
     final Uri url = Uri.parse('https://locate.graphicodeindia.com/admin/register');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
@@ -133,7 +239,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         ),
         child: Stack(
           children: [
-            // 1. Map Background Header
             Positioned(
               top: 0,
               left: 0,
@@ -163,14 +268,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                         ),
                       ),
                     ),
-                    // Radar Animation
                     const Center(child: RadarAnimation()),
                   ],
                 ),
               ),
             ),
 
-            // 2. Main Content
             SafeArea(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -180,7 +283,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     children: [
                       SizedBox(height: MediaQuery.of(context).size.height * 0.1),
                       
-                      // Logo and App Name
                       FadeTransition(
                         opacity: _fadeAnimation,
                         child: Column(
@@ -233,7 +335,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       
                       const SizedBox(height: 50),
 
-                      // 3. Glassmorphic Login Card
                       FadeTransition(
                         opacity: _fadeAnimation,
                         child: SlideTransition(
@@ -302,7 +403,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                       ),
                                       const SizedBox(height: 30),
                                       
-                                      // Login Button
                                       SizedBox(
                                         width: double.infinity,
                                         height: 56,
@@ -347,7 +447,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       
                       const SizedBox(height: 50),
                       
-                      // 4. Organization Registration Section
                       FadeTransition(
                         opacity: _fadeAnimation,
                         child: Column(
@@ -449,7 +548,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 }
 
-// Custom Clipper for the map header
 class HeaderClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
@@ -470,7 +568,6 @@ class HeaderClipper extends CustomClipper<Path> {
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
-// Radar Pulse Animation
 class RadarAnimation extends StatefulWidget {
   const RadarAnimation({super.key});
 
@@ -478,7 +575,7 @@ class RadarAnimation extends StatefulWidget {
   State<RadarAnimation> createState() => _RadarAnimationState();
 }
 
-class _RadarAnimationState extends State<RadarAnimation> with SingleTickerProviderStateMixin {
+class _RadarAnimationState extends State<RadarAnimation> with TickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -521,4 +618,54 @@ class _RadarAnimationState extends State<RadarAnimation> with SingleTickerProvid
       },
     );
   }
+}
+
+class FlagSweepPainter extends CustomPainter {
+  final double progress;
+  FlagSweepPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const Color saffron = Color(0xFFFF9933);
+    const Color green = Color(0xFF138808);
+    const Color white = Colors.white;
+
+    final Paint paint = Paint()..style = PaintingStyle.fill;
+    double maxDist = size.width + size.height;
+    
+    double saffronProgress = (progress * 1.5).clamp(0.0, 1.0);
+    _drawDiagonalBand(canvas, size, paint..color = saffron, saffronProgress * maxDist);
+
+    double whiteProgress = ((progress - 0.1) * 1.5).clamp(0.0, 1.0);
+    if (whiteProgress > 0) {
+      _drawDiagonalBand(canvas, size, paint..color = white, whiteProgress * maxDist);
+    }
+
+    double greenProgress = ((progress - 0.2) * 1.5).clamp(0.0, 1.0);
+    if (greenProgress > 0) {
+      _drawDiagonalBand(canvas, size, paint..color = green, greenProgress * maxDist);
+    }
+  }
+
+  void _drawDiagonalBand(Canvas canvas, Size size, Paint paint, double dist) {
+    Path path = Path();
+    path.moveTo(size.width, 0);
+    double topX = size.width - dist;
+    path.lineTo(topX.clamp(0, size.width), 0);
+    if (dist > size.width) {
+      path.lineTo(0, 0);
+      path.lineTo(0, (dist - size.width).clamp(0, size.height));
+    }
+    if (dist > size.height) {
+      path.lineTo((dist - size.height).clamp(0, size.width), size.height);
+      path.lineTo(size.width, size.height);
+    } else {
+      path.lineTo(size.width, dist.clamp(0, size.height));
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant FlagSweepPainter oldDelegate) => oldDelegate.progress != progress;
 }
