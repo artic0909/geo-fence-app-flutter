@@ -194,10 +194,13 @@ class _SplashScreenState extends State<SplashScreen>
                                       scale: _logoScale,
                                       child: Hero(
                                         tag: 'app_logo',
-                                        child: Image.asset(
-                                          'assets/playstore.png',
-                                          width: 120,
-                                          height: 120,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(25),
+                                          child: Image.asset(
+                                            'assets/playstore.png',
+                                            width: 120,
+                                            height: 120,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -252,14 +255,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(
-                            width: 30,
-                            height: 30,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A1A1A)),
-                            ),
-                          ),
+                          const LoadingDots(),
                           const SizedBox(height: 20),
                           Text(
                             'PRECISE • SECURE • RELIABLE',
@@ -280,6 +276,82 @@ class _SplashScreenState extends State<SplashScreen>
           );
         },
       ),
+    );
+  }
+}
+
+class LoadingDots extends StatefulWidget {
+  const LoadingDots({super.key});
+
+  @override
+  State<LoadingDots> createState() => _LoadingDotsState();
+}
+
+class _LoadingDotsState extends State<LoadingDots> with TickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color saffron = Color(0xFFFF9933);
+    const Color green = Color(0xFF138808);
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            // Calculate progress for each dot with an offset
+            double progress = (_controller.value + (index * 0.2)) % 1.0;
+            
+            // Transform opacity and scale based on progress
+            double opacity = 0.3 + (0.7 * (1.0 - (progress - 0.5).abs() * 2));
+            double scale = 0.8 + (0.4 * (1.0 - (progress - 0.5).abs() * 2));
+            
+            Color color = index == 0 ? saffron : (index == 1 ? Colors.white : green);
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Opacity(
+                opacity: opacity.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: scale.clamp(0.0, 1.5),
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withOpacity(0.3),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }
