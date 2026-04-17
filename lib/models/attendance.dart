@@ -5,6 +5,7 @@ class Attendance {
   final String? checkOut;
   final String status;
   final String locationName;
+  final String type; // 'normal' or 'outside'
 
   Attendance({
     required this.id,
@@ -13,6 +14,7 @@ class Attendance {
     this.checkOut,
     required this.status,
     required this.locationName,
+    required this.type,
   });
 
   factory Attendance.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,9 @@ class Attendance {
       checkOut: json['check_out']?.toString(),
       status: parseStatus(json['status']),
       locationName: locName,
+      type: json['type']?.toString() ?? 'normal',
     );
   }
+
+  bool get isOutside => type == 'outside';
 }

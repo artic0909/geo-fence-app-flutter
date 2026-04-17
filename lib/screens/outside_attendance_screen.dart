@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../services/api_service.dart';
@@ -143,7 +145,18 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       }
 
       setState(() => _status = 'Verifying Outside Check-in...');
-      final String locationDesc = "Outside at ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}";
+      
+      // Get human-readable address
+      String locationDesc = "Outside at ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}";
+      try {
+        final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          locationDesc = "${p.street}, ${p.subLocality}, ${p.locality}";
+        }
+      } catch (e) {
+        // Fallback to coordinates if geocoding fails
+      }
       
       final res = await ApiService.outsideCheckIn(pos.latitude, pos.longitude, photo, locationDesc);
 
@@ -184,7 +197,16 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       }
 
       setState(() => _status = 'Processing Outside Check-out...');
-      final String locationDesc = "End Outside at ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}";
+      
+      // Get human-readable address for checkout
+      String locationDesc = "End Outside at ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}";
+      try {
+        final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          locationDesc = "Finished at ${p.street}, ${p.locality}";
+        }
+      } catch (e) {}
 
       final res = await ApiService.outsideCheckOut(pos.latitude, pos.longitude, photo, locationDesc);
 

@@ -200,7 +200,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
 
   Widget _buildNewCard(Attendance attend, Color saffron, Color green) {
     final status = attend.status.toLowerCase();
-    final Color color = status == 'present' ? green : (status == 'late' ? saffron : Colors.red);
+    final Color color = attend.isOutside 
+        ? Colors.orange 
+        : (status == 'present' ? green : (status == 'late' ? saffron : Colors.red));
     
     DateTime? dt;
     try { 
@@ -212,8 +214,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: attend.isOutside ? const Color(0xFFFFF8F0) : Colors.white, // Subtle orange tint for outside cards
         borderRadius: BorderRadius.circular(30),
+        border: attend.isOutside ? Border.all(color: Colors.orange.withOpacity(0.1), width: 1) : null,
         boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
@@ -254,14 +257,14 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          Icon(Icons.location_on_rounded, size: 10, color: Colors.black.withOpacity(0.3)),
+                          Icon(attend.isOutside ? Icons.add_location_alt_rounded : Icons.location_on_rounded, size: 10, color: color.withOpacity(0.5)),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
                               attend.locationName, 
-                              maxLines: 1,
+                              maxLines: 2, // Allow 2 lines for address
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.3))
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.4))
                             ),
                           ),
                         ],
@@ -274,7 +277,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
                   child: Text(
-                    attend.status.toUpperCase(), 
+                    (attend.isOutside ? "OUTSIDE" : attend.status).toUpperCase(), 
                     style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)
                   ),
                 ),
@@ -285,16 +288,16 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
+              color: attend.isOutside ? Colors.orange.withOpacity(0.04) : const Color(0xFFF8F9FA),
               borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
             child: Row(
               children: [
-                _buildTimeColumn("CHECK-IN", _formatTime(attend.checkIn), Icons.access_time_filled_rounded, Colors.blue),
+                _buildTimeColumn("CHECK-IN", _formatTime(attend.checkIn), Icons.access_time_filled_rounded, attend.isOutside ? Colors.orange : Colors.blue),
                 const Spacer(),
                 Container(width: 1, height: 25, color: Colors.grey.withOpacity(0.1)),
                 const Spacer(),
-                _buildTimeColumn("CHECK-OUT", _formatTime(attend.checkOut), Icons.alarm_on_rounded, Colors.orange),
+                _buildTimeColumn("CHECK-OUT", _formatTime(attend.checkOut), Icons.alarm_on_rounded, attend.isOutside ? Colors.deepOrange : Colors.orange),
               ],
             ),
           ),
@@ -408,5 +411,5 @@ class FlagBannerPainter extends CustomPainter {
     canvas.drawPath(Path()..moveTo(size.width, size.height)..lineTo(size.width * 0.3, size.height)..lineTo(size.width, size.height * 0.55)..close(), paint..color = green);
   }
   @override
-  bool shouldRepaint(CustomPainter old) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
