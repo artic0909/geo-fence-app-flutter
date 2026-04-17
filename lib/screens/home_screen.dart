@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import 'dart:convert';
 import 'dart:ui';
 import 'login_screen.dart';
+import 'outside_attendance_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.initState();
     _loadUserData();
     _initLocation();
-    
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -76,14 +77,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _checkIn() async {
-    setState(() { _isChecking = true; _status = 'Locking GPS...'; });
+    setState(() {
+      _isChecking = true;
+      _status = 'Locking GPS...';
+    });
     try {
       final pos = await LocationService.getCurrentLocation();
-      setState(() { _currentLocation = LatLng(pos.latitude, pos.longitude); _status = 'GPS Locked. Take Selfie'; });
+      setState(() {
+        _currentLocation = LatLng(pos.latitude, pos.longitude);
+        _status = 'GPS Locked. Take Selfie';
+      });
       _mapController.move(_currentLocation!, 17);
-      
+
       final photo = await CameraService.takePicture();
-      if (photo == null) { setState(() => _status = 'Cancelled'); return; }
+      if (photo == null) {
+        setState(() => _status = 'Cancelled');
+        return;
+      }
 
       setState(() => _status = 'Verifying Check-in...');
       final res = await ApiService.checkIn(pos.latitude, pos.longitude, photo);
@@ -91,21 +101,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_checked_in', true);
-        setState(() { _isCheckedIn = true; _status = 'Check-in Confirmed! ✅'; });
-      } else { _showError('Check-in Rejected'); }
-    } catch (e) { _showError('Connection error'); }
-    finally { setState(() => _isChecking = false); }
+        setState(() {
+          _isCheckedIn = true;
+          _status = 'Check-in Confirmed! ✅';
+        });
+      } else {
+        _showError('Check-in Rejected');
+      }
+    } catch (e) {
+      _showError('Connection error');
+    } finally {
+      setState(() => _isChecking = false);
+    }
   }
 
   Future<void> _checkOut() async {
-    setState(() { _isChecking = true; _status = 'Locking GPS...'; });
+    setState(() {
+      _isChecking = true;
+      _status = 'Locking GPS...';
+    });
     try {
       final pos = await LocationService.getCurrentLocation();
-      setState(() { _currentLocation = LatLng(pos.latitude, pos.longitude); _status = 'GPS Locked. Take Selfie'; });
+      setState(() {
+        _currentLocation = LatLng(pos.latitude, pos.longitude);
+        _status = 'GPS Locked. Take Selfie';
+      });
       _mapController.move(_currentLocation!, 17);
 
       final photo = await CameraService.takePicture();
-      if (photo == null) { setState(() => _status = 'Cancelled'); return; }
+      if (photo == null) {
+        setState(() => _status = 'Cancelled');
+        return;
+      }
 
       setState(() => _status = 'Processing Check-out...');
       final res = await ApiService.checkOut(pos.latitude, pos.longitude, photo);
@@ -113,21 +140,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_checked_in', false);
-        setState(() { _isCheckedIn = false; _status = 'Check-out Logged! ✅'; });
-      } else { _showError('Check-out Rejected'); }
-    } catch (e) { _showError('Connection error'); }
-    finally { setState(() => _isChecking = false); }
+        setState(() {
+          _isCheckedIn = false;
+          _status = 'Check-out Logged! ✅';
+        });
+      } else {
+        _showError('Check-out Rejected');
+      }
+    } catch (e) {
+      _showError('Connection error');
+    } finally {
+      setState(() => _isChecking = false);
+    }
   }
 
   void _showError(String m) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red));
   }
 
   @override
   Widget build(BuildContext context) {
     const Color saffron = Color(0xFFFF9933);
     const Color green = Color(0xFF138808);
-    
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -143,10 +180,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Positioned.fill(
             child: Opacity(
               opacity: 0.15,
-              child: Image.asset(
-                'assets/map.png',
-                fit: BoxFit.cover,
-              ),
+              child: Image.asset('assets/map.png', fit: BoxFit.cover),
             ),
           ),
 
@@ -163,11 +197,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _buildStatusRow(),
 
               // Attendance Button
-              Expanded(
-                child: Center(
-                  child: _buildAttendanceButton(green),
-                ),
-              ),
+              Expanded(child: Center(child: _buildAttendanceButton(green))),
 
               // Guide Section
               _buildGuideSection(saffron),
@@ -205,18 +235,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   children: [
                     Text(
                       _userName.toUpperCase(),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A)),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1A1A1A),
+                      ),
                     ),
                     Text(
                       _orgName,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.4)),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black.withOpacity(0.4),
+                      ),
                     ),
                   ],
                 ),
               ),
-              IconButton(icon: const Icon(Icons.history_toggle_off_rounded), onPressed: () {}),
               IconButton(
-                icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent),
+                icon: const Icon(Icons.history_toggle_off_rounded),
+                onPressed: () {},
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.power_settings_new_rounded,
+                  color: Colors.redAccent,
+                ),
                 onPressed: _logout,
               ),
             ],
@@ -259,13 +303,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     children: [
                       AnimatedBuilder(
                         animation: _pulseController,
-                        builder: (context, child) => Container(
-                          width: 30 + (30 * _pulseController.value),
-                          height: 30 + (30 * _pulseController.value),
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: saffron.withOpacity(1 - _pulseController.value)),
-                        ),
+                        builder:
+                            (context, child) => Container(
+                              width: 30 + (30 * _pulseController.value),
+                              height: 30 + (30 * _pulseController.value),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: saffron.withOpacity(
+                                  1 - _pulseController.value,
+                                ),
+                              ),
+                            ),
                       ),
-                      const Icon(Icons.location_on, color: Colors.red, size: 35),
+                      const Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 35,
+                      ),
                     ],
                   ),
                 ),
@@ -283,24 +337,84 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // System Status on the Left
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("SYSTEM STATUS", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
-              Text(_status, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF2E2E2E))),
+              Text(
+                "SYSTEM STATUS",
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.grey.shade600,
+                  letterSpacing: 1,
+                ),
+              ),
+              Text(
+                _status,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF2E2E2E),
+                ),
+              ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _isCheckedIn ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: (_isCheckedIn ? Colors.red : Colors.green).withOpacity(0.2)),
-            ),
-            child: Text(
-              _isCheckedIn ? "ON DUTY" : "OFF DUTY",
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: _isCheckedIn ? Colors.red : Colors.green),
-            ),
+
+          // Buttons Grouped on the Right
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const OutsideAttendanceScreen(),
+                      ),
+                    ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                  ),
+                  child: const Text(
+                    "OUTSIDE ATTENDANCE",
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8), // Space between buttons
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color:
+                      _isCheckedIn
+                          ? Colors.red.withOpacity(0.1)
+                          : Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: (_isCheckedIn ? Colors.red : Colors.green).withOpacity(
+                      0.2,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  _isCheckedIn ? "ON DUTY" : "OFF DUTY",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: _isCheckedIn ? Colors.red : Colors.green,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -324,14 +438,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               AnimatedBuilder(
                 animation: _pulseController,
-                builder: (context, child) => Container(
-                  width: 160 + (20 * _pulseController.value),
-                  height: 160 + (20 * _pulseController.value),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: (_isCheckedIn ? Colors.red : green).withOpacity(1 - _pulseController.value), width: 2),
-                  ),
-                ),
+                builder:
+                    (context, child) => Container(
+                      width: 160 + (20 * _pulseController.value),
+                      height: 160 + (20 * _pulseController.value),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: (_isCheckedIn ? Colors.red : green)
+                              .withOpacity(1 - _pulseController.value),
+                          width: 2,
+                        ),
+                      ),
+                    ),
               ),
               Container(
                 width: 150,
@@ -341,24 +460,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: _isCheckedIn 
-                      ? [const Color(0xFFFF5252), const Color(0xFFD32F2F)] 
-                      : [const Color(0xFF66BB6A), const Color(0xFF388E3C)],
+                    colors:
+                        _isCheckedIn
+                            ? [const Color(0xFFFF5252), const Color(0xFFD32F2F)]
+                            : [
+                              const Color(0xFF66BB6A),
+                              const Color(0xFF388E3C),
+                            ],
                   ),
                   boxShadow: [
-                    BoxShadow(color: (_isCheckedIn ? Colors.red : green).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10)),
+                    BoxShadow(
+                      color: (_isCheckedIn ? Colors.red : green).withOpacity(
+                        0.4,
+                      ),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
                   ],
                 ),
-                child: _isChecking 
-                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(_isCheckedIn ? Icons.logout_rounded : Icons.fingerprint_rounded, color: Colors.white, size: 50),
-                        const SizedBox(height: 10),
-                        Text(_isCheckedIn ? "CHECK OUT" : "MARK PRESENT", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                      ],
-                    ),
+                child:
+                    _isChecking
+                        ? const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
+                        : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _isCheckedIn
+                                  ? Icons.logout_rounded
+                                  : Icons.fingerprint_rounded,
+                              color: Colors.white,
+                              size: 50,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _isCheckedIn ? "CHECK OUT" : "MARK PRESENT",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        ),
               ),
             ],
           ),
@@ -374,14 +520,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20),
+        ],
         border: Border.all(color: Colors.white),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: saffron.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+            decoration: BoxDecoration(
+              color: saffron.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+            ),
             child: Icon(Icons.verified_user_rounded, color: saffron),
           ),
           const SizedBox(width: 15),
@@ -389,9 +540,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("ATTENDANCE GUIDE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+                const Text(
+                  "ATTENDANCE GUIDE",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
                 const SizedBox(height: 5),
-                Text("Ensure you are within the geo-fence and your face is fully visible for the selfie check.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
+                Text(
+                  "Ensure you are within the geo-fence and your face is fully visible for the selfie check.",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black.withOpacity(0.5),
+                  ),
+                ),
               ],
             ),
           ),
@@ -403,7 +568,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
-    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+    if (mounted)
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
   }
 }
 
