@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'login_screen.dart';
 import 'outside_attendance_screen.dart';
+import 'history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -254,7 +255,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               IconButton(
                 icon: const Icon(Icons.history_toggle_off_rounded),
-                onPressed: () {},
+                onPressed:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                    ),
               ),
               IconButton(
                 icon: const Icon(
