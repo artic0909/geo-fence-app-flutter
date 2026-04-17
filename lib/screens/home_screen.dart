@@ -228,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildSatelliteMap(Color saffron) {
     return Container(
-      height: 220,
+      height: 320,
       width: double.infinity,
       decoration: BoxDecoration(
         boxShadow: [
