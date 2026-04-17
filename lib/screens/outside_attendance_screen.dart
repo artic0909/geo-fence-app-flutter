@@ -157,7 +157,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
   Future<void> _outsideCheckIn() async {
     if (_reasonController.text.trim().isEmpty) {
-      _showError('Please provide a reason for outside attendance');
+      _showError('Error: Reason is required for Check-in!');
       return;
     }
 
@@ -229,7 +229,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
       setState(() => _status = 'Processing Outside Check-out...');
       final res = await ApiService.outsideCheckOut(
-        pos.latitude, pos.longitude, photo, locationDesc, _reasonController.text.trim()
+        pos.latitude, pos.longitude, photo, locationDesc, null // No reason needed during checkout
       );
 
       if (res.statusCode == 200) {
@@ -276,8 +276,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                   child: Column(
                     children: [
                       const SizedBox(height: 30),
-                      _buildReasonInput(saffron),
-                      const SizedBox(height: 10), // Adjust spacing
+                      if (!_isOutsideCheckedIn) _buildReasonInput(saffron),
+                      const SizedBox(height: 10),
                       _buildAttendanceButton(Colors.orange),
                       const SizedBox(height: 30),
                     ],
@@ -329,7 +329,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
   Widget _buildSatelliteMap(Color saffron) {
     return Container(
-      height: 280, // Reduced height to fit reason input
+      height: 280,
       width: double.infinity,
       decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)]),
       child: Stack(
@@ -439,7 +439,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         maxLines: 2,
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         decoration: InputDecoration(
-          hintText: _isOutsideCheckedIn ? "Summary of work done... (Optional)" : "Reason for outside duty... (Required)",
+          hintText: "Reason for outside duty... (MANDATORY)",
           hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400, fontWeight: FontWeight.w500),
           prefixIcon: Icon(Icons.edit_note_rounded, color: saffron),
           border: InputBorder.none,
@@ -507,7 +507,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               children: [
                 const Text("OUTSIDE MODE ACTIVE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
                 const SizedBox(height: 5),
-                Text("Please provide a valid reason. This session will be recorded for admin review.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
+                Text("Reason is mandatory for startup. Please describe your duty context clearly.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
               ],
             ),
           ),
