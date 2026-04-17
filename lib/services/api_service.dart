@@ -101,6 +101,48 @@ class ApiService {
     return await http.Response.fromStream(await request.send());
   }
 
+  static Future<http.Response> outsideCheckIn(
+    double lat,
+    double lng,
+    File image,
+    String? location,
+  ) async {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/outside-check-in'),
+    );
+    request.headers.addAll(await getHeaders());
+
+    request.fields['latitude'] = lat.toString();
+    request.fields['longitude'] = lng.toString();
+    if (location != null) request.fields['checkin_location'] = location;
+
+    request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+
+    return await http.Response.fromStream(await request.send());
+  }
+
+  static Future<http.Response> outsideCheckOut(
+    double lat,
+    double lng,
+    File image,
+    String? location,
+  ) async {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/outside-check-out'),
+    );
+    request.headers.addAll(await getHeaders());
+
+    request.fields['latitude'] = lat.toString();
+    request.fields['longitude'] = lng.toString();
+    if (location != null) request.fields['checkout_location'] = location;
+
+    request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+
+    return await http.Response.fromStream(await request.send());
+  }
+
   static Future<http.Response> getAttendanceHistory() async {
     try {
       final response = await http.get(
