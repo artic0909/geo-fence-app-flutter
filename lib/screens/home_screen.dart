@@ -79,8 +79,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           _userName = data['employee_name'] ?? _userName;
           _isCheckedIn = status['is_checked_in'] ?? false;
+          
+          // STRICT SYNC: Follow the server's truth for completion
           if (status['is_completed'] == true) {
             _lastActionDate = today;
+          } else if (!_isCheckedIn) {
+            // If server says not completed and not checked-in, clear local status
+            _lastActionDate = '';
           }
           
           if (_isCheckedIn) {
@@ -95,6 +100,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         // Sync back to local storage
         await prefs.setBool('is_checked_in', _isCheckedIn);
         await prefs.setString('last_action_date', _lastActionDate);
+
+        // ROUTING LOGIC: If checked-in via Outside Mode, force the Outside Screen
+        if (status['is_outside'] == true && _isCheckedIn && mounted) {
+           Navigator.pushReplacement(
+             context,
+             MaterialPageRoute(builder: (context) => const OutsideAttendanceScreen()),
+           );
+        }
       }
     } catch (e) {
       print('Sync error: $e');
@@ -170,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           _isCheckedIn = true;
           _lastActionDate = today;
-          _status = 'Check-in Confirmed! ✅';
+          _status = 'Check-in Confirmed!';
         });
       } else {
         final error = json.decode(res.body)['error'] ?? 'Check-in Rejected';
@@ -213,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           _isCheckedIn = false;
           _lastActionDate = today;
-          _status = 'Check-out Logged! ✅';
+          _status = 'Check-out Logged!';
         });
       } else {
         final error = json.decode(res.body)['error'] ?? 'Check-out Rejected';

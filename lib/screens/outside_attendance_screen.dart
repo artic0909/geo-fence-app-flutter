@@ -5,8 +5,10 @@ import 'package:latlong2/latlong.dart' hide Path;
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../services/api_service.dart';
+import 'dart:convert';
 import 'dart:ui';
 import 'history_screen.dart';
+import 'home_screen.dart';
 
 class OutsideAttendanceScreen extends StatefulWidget {
   const OutsideAttendanceScreen({super.key});
@@ -58,7 +60,33 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       _userName = prefs.getString('user_name') ?? 'User Name';
       _orgName = prefs.getString('org_name') ?? 'Official Organization';
       _isOutsideCheckedIn = prefs.getBool('is_outside_checked_in') ?? false;
+      if (_isOutsideCheckedIn) {
+        _status = 'You are in an active Outside Session';
+      }
     });
+
+    // Proactive Sync with Server
+    try {
+      final response = await ApiService.getEmployeeData();
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final status = data['attendance_status'];
+
+        setState(() {
+          _isOutsideCheckedIn = status['is_outside'] ?? false;
+          if (_isOutsideCheckedIn) {
+            _status = 'Outside Session Active!';
+          } else {
+            _status = 'Ready for Outside Action';
+          }
+        });
+
+        // Update local prefs
+        await prefs.setBool('is_outside_checked_in', _isOutsideCheckedIn);
+      }
+    } catch (e) {
+      print('Sync error in Outside screen: $e');
+    }
   }
 
   Future<void> _initLocation() async {
@@ -124,7 +152,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         await prefs.setBool('is_outside_checked_in', true);
         setState(() {
           _isOutsideCheckedIn = true;
-          _status = 'Outside Check-in Confirmed! ✅';
+          _status = 'Outside Check-in Confirmed!';
         });
       } else {
         _showError('Outside Check-in Rejected');
@@ -165,7 +193,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         await prefs.setBool('is_outside_checked_in', false);
         setState(() {
           _isOutsideCheckedIn = false;
-          _status = 'Outside Check-out Logged! ✅';
+          _status = 'Outside Check-out Logged!';
         });
       } else {
         _showError('Outside Check-out Rejected');
@@ -413,25 +441,35 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green.withOpacity(0.2)),
-                  ),
-                  child: const Text(
-                    "ONSITE DUTY",
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.green,
+              if (!_isOutsideCheckedIn)
+                GestureDetector(
+                  onTap: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const HomeScreen()),
+                    );
+                  }
+                },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.green.withOpacity(0.2)),
+                    ),
+                    child: const Text(
+                      "ONSITE DUTY",
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.green,
+                      ),
                     ),
                   ),
                 ),
-              ),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
