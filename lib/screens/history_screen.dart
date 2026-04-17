@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/attendance.dart';
 import 'dart:convert';
+import 'dart:ui';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -10,37 +11,40 @@ class HistoryScreen extends StatefulWidget {
   _HistoryScreenState createState() => _HistoryScreenState();
 }
 
-class _HistoryScreenState extends State<HistoryScreen> {
-  List<Attendance> _attendances = [];
+class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateMixin {
+  List<Attendance> _allAttendances = [];
+  List<Attendance> _filteredAttendances = [];
   bool _isLoading = true;
-  bool _isRefreshing = false;
   String? _errorMessage;
+
+  int _visibleCount = 5;
+  DateTime? _startDate;
+  DateTime? _endDate;
+
+  late AnimationController _radarController;
+  late AnimationController _listController;
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
+    _radarController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _listController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+  }
+
+  @override
+  void dispose() {
+    _radarController.dispose();
+    _listController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadHistory() async {
     try {
       final response = await ApiService.getAttendanceHistory();
-      print('History Response Status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-
-        // Debug: Print first attendance record to see the structure
-        if (data['attendances'] is List &&
-            (data['attendances'] as List).isNotEmpty) {
-          print('First attendance record: ${data['attendances'][0]}');
-          print('Check-in time: ${data['attendances'][0]['check_in']}');
-          print('Check-out time: ${data['attendances'][0]['check_out']}');
-          print('Date: ${data['attendances'][0]['date']}');
-        }
-
         List<dynamic> attendanceList = [];
-
         if (data['attendances'] is List) {
           attendanceList = data['attendances'];
         } else if (data is List) {
@@ -49,420 +53,250 @@ class _HistoryScreenState extends State<HistoryScreen> {
           attendanceList = data['data'];
         }
 
-        print('Found ${attendanceList.length} attendance records');
-
-        // Parse each attendance record with error handling
         final List<Attendance> parsedAttendances = [];
-
         for (var item in attendanceList) {
-          try {
-            final attendance = Attendance.fromJson(item);
-            parsedAttendances.add(attendance);
-
-            // Debug: Print converted times
-            print(
-              'Original Check-in: ${item['check_in']} -> Local: ${_formatDateTime(item['check_in'])}',
-            );
-            print(
-              'Original Check-out: ${item['check_out']} -> Local: ${_formatDateTime(item['check_out'])}',
-            );
-          } catch (e) {
-            print('Error parsing attendance item: $e');
-            print('Problematic item: $item');
-          }
+          try { parsedAttendances.add(Attendance.fromJson(item)); } catch (e) {}
         }
 
         setState(() {
-          _attendances = parsedAttendances;
+          _allAttendances = parsedAttendances;
           _isLoading = false;
-          _isRefreshing = false;
           _errorMessage = null;
+          _applyFilters();
+          _listController.forward(from: 0);
         });
       } else {
-        setState(() {
-          _isLoading = false;
-          _isRefreshing = false;
-          _errorMessage = 'Failed to load history: ${response.statusCode}';
-        });
+        setState(() { _isLoading = false; _errorMessage = 'Failed to load history'; });
       }
     } catch (e) {
-      print('Error loading history: $e');
-      setState(() {
-        _isLoading = false;
-        _isRefreshing = false;
-        _errorMessage = 'Error loading history: $e';
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading history: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      setState(() { _isLoading = false; _errorMessage = 'Connection Error'; });
     }
   }
 
-  Future<void> _refreshData() async {
-    setState(() => _isRefreshing = true);
-    await _loadHistory();
+  void _applyFilters() {
+    setState(() {
+      _filteredAttendances = _allAttendances.where((attendance) {
+        try {
+          final date = DateTime.parse(attendance.date);
+          final start = _startDate != null ? DateTime(_startDate!.year, _startDate!.month, _startDate!.day) : null;
+          final end = _endDate != null ? DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59) : null;
+          if (start != null && date.isBefore(start)) return false;
+          if (end != null && date.isAfter(end)) return false;
+          return true;
+        } catch (e) { return true; }
+      }).toList();
+      _visibleCount = 5;
+    });
   }
 
-  String _formatDate(String date) {
-    try {
-      final parsedDate = DateTime.parse(date).toLocal();
-      return '${parsedDate.day.toString().padLeft(2, '0')}/${parsedDate.month.toString().padLeft(2, '0')}/${parsedDate.year}';
-    } catch (e) {
-      return date;
-    }
-  }
+  @override
+  Widget build(BuildContext context) {
+    const Color saffron = Color(0xFFFF9933);
+    const Color green = Color(0xFF138808);
 
-  String _formatTime(String? time) {
-    if (time == null) return 'N/A';
-    try {
-      // Parse as UTC and convert to local time
-      final parsedTime = DateTime.parse(time).toLocal();
-      return _formatTo12Hour(parsedTime);
-    } catch (e) {
-      // Fallback: try to extract time from string and convert to 12-hour
-      if (time.contains(' ')) {
-        final parts = time.split(' ');
-        if (parts.length > 1) {
-          final timePart = parts[1];
-          if (timePart.contains(':')) {
-            final timeComponents = timePart.split(':');
-            if (timeComponents.length >= 2) {
-              final hour = int.tryParse(timeComponents[0]) ?? 0;
-              final minute = timeComponents[1];
-              return _convertTo12Hour(hour, minute);
-            }
-          }
-        }
-      }
-      return time;
-    }
-  }
-
-  String _formatDateTime(String? datetime) {
-    if (datetime == null) return 'N/A';
-    try {
-      final parsedDateTime = DateTime.parse(datetime).toLocal();
-      final date =
-          '${parsedDateTime.day.toString().padLeft(2, '0')}/${parsedDateTime.month.toString().padLeft(2, '0')}/${parsedDateTime.year}';
-      final time = _formatTo12Hour(parsedDateTime);
-      return '$date $time';
-    } catch (e) {
-      return datetime;
-    }
-  }
-
-  String _formatTo12Hour(DateTime dateTime) {
-    final hour = dateTime.hour;
-    final minute = dateTime.minute;
-    return _convertTo12Hour(hour, minute.toString().padLeft(2, '0'));
-  }
-
-  String _convertTo12Hour(int hour, String minute) {
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final twelveHour = hour % 12;
-    final displayHour = twelveHour == 0 ? 12 : twelveHour;
-    return '${displayHour.toString().padLeft(2, '0')}:$minute $period';
-  }
-
-  // FIXED: Correct day name calculation
-  String _getDayName(String date) {
-    try {
-      final days = [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ];
-      final parsedDate = DateTime.parse(date);
-      // DateTime.weekday returns 1 for Monday, 7 for Sunday
-      return days[parsedDate.weekday - 1];
-    } catch (e) {
-      return '';
-    }
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
         children: [
-          Icon(Icons.history_toggle_off, size: 80, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No Attendance Records',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+          // Background components
+          Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
+          Positioned.fill(child: Opacity(opacity: 0.1, child: Image.asset('assets/map.png', fit: BoxFit.cover))),
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _radarController,
+              builder: (context, child) => CustomPaint(
+                painter: RadarSweepPainter(angle: _radarController.value * 2 * 3.1415, color: saffron.withOpacity(0.04)),
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Your attendance history will appear here',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 80, color: Colors.red[400]),
-          const SizedBox(height: 16),
-          Text(
-            'Failed to Load History',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.red[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Text(
-              _errorMessage ?? 'Unknown error occurred',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _refreshData,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Try Again'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAttendanceCard(Attendance attendance, int index) {
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.fromLTRB(16, index == 0 ? 16 : 8, 16, 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              color: _getStatusColor(attendance.status),
-              width: 4,
-            ),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Column(
             children: [
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+              _buildHeader(saffron),
+              if (_startDate != null) _buildFilterTag(saffron),
+              Expanded(
+                child: _isLoading 
+                    ? _buildLoading()
+                    : _filteredAttendances.isEmpty 
+                    ? _buildEmpty()
+                    : _buildList(saffron, green),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(Color saffron) {
+    return Container(
+      padding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 25),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+              child: const Icon(Icons.arrow_back_rounded, size: 20),
+            ),
+          ),
+          const Text("MY ATTENDANCE", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          GestureDetector(
+            onTap: _selectDateRange,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: saffron, shape: BoxShape.circle, boxShadow: [BoxShadow(color: saffron.withOpacity(0.3), blurRadius: 10)]),
+              child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterTag(Color saffron) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: _clearFilters,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)),
+          child: Text(
+            "${_startDate!.day} ${_getMonthName(_startDate!.month)} - ${_endDate!.day} ${_getMonthName(_endDate!.month)}  ✕",
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildList(Color saffron, Color green) {
+    final displayItems = _filteredAttendances.take(_visibleCount).toList();
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      itemCount: displayItems.length + (_filteredAttendances.length > _visibleCount ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == displayItems.length) return _buildLoadMore(saffron);
+        
+        return AnimatedBuilder(
+          animation: _listController,
+          builder: (context, child) {
+            final delay = (index * 0.1).clamp(0.0, 0.5);
+            final anim = Interval(delay, (delay + 0.5).clamp(0.0, 1.0), curve: Curves.easeOutQuart).transform(_listController.value);
+            return Opacity(
+              opacity: anim,
+              child: Transform.translate(offset: Offset(0, 30 * (1 - anim)), child: child),
+            );
+          },
+          child: _buildNewCard(displayItems[index], saffron, green),
+        );
+      },
+    );
+  }
+
+  Widget _buildNewCard(Attendance attend, Color saffron, Color green) {
+    final status = attend.status.toLowerCase();
+    final Color color = status == 'present' ? green : (status == 'late' ? saffron : Colors.red);
+    
+    // Parse date properly once
+    DateTime? dt;
+    try { dt = DateTime.parse(attend.date); } catch(e) {}
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
+      ),
+      child: Column(
+        children: [
+          // Upper Part: Date & Status
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                // Date Block (Fixed Width)
+                Container(
+                  width: 55,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.calendar_today,
-                          size: 16,
-                          color: Colors.blue[700],
-                        ),
+                      Text(
+                        dt != null ? dt.day.toString().padLeft(2, '0') : "??", 
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color)
                       ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Text(
+                        dt != null ? _getMonthName(dt.month) : "???", 
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: color)
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 15),
+                // Info Column (Expanded)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getDayName(attend.date).toUpperCase(), 
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
                         children: [
-                          Text(
-                            _formatDate(attendance.date),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                          Icon(Icons.location_on_rounded, size: 10, color: Colors.black.withOpacity(0.3)),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              "OFFICE HUB", 
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.3))
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(
-                        attendance.status,
-                      ).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _getStatusColor(
-                          attendance.status,
-                        ).withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      attendance.status.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _getStatusColor(attendance.status),
-                      ),
-                    ),
+                ),
+                const SizedBox(width: 10),
+                // Status Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+                  child: Text(
+                    attend.status.toUpperCase(), 
+                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)
                   ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Check-in/Check-out Times with Full DateTime
-              Column(
-                children: [
-                  if (attendance.checkIn != null)
-                    _buildTimeDetailCard(
-                      'Check In',
-                      _formatDateTime(attendance.checkIn),
-                      Icons.login,
-                      Colors.green,
-                    ),
-
-                  if (attendance.checkIn != null && attendance.checkOut != null)
-                    const SizedBox(height: 8),
-
-                  if (attendance.checkOut != null)
-                    _buildTimeDetailCard(
-                      'Check Out',
-                      _formatDateTime(attendance.checkOut),
-                      Icons.logout,
-                      Colors.orange,
-                    ),
-                ],
-              ),
-
-              // Duration (if both check-in and check-out exist)
-              if (attendance.checkIn != null &&
-                  attendance.checkOut != null &&
-                  attendance.checkIn != 'N/A' &&
-                  attendance.checkOut != 'N/A') ...[
-                const SizedBox(height: 12),
-                _buildDurationInfo(attendance.checkIn!, attendance.checkOut!),
+                ),
               ],
-
-              // Debug info (optional - you can remove this later)
-              const SizedBox(height: 8),
-              Text(
-                'DB Times - In: ${attendance.checkIn ?? "N/A"}, Out: ${attendance.checkOut ?? "N/A"}',
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildTimeDetailCard(
-    String title,
-    String datetime,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.1), width: 1),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[600],
-                ),
-              ),
-              Text(
-                datetime,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeCard(String title, String time, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: color,
+          // Lower Part: Visual Time Slot
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F9FA),
+              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+            ),
+            child: Row(
+              children: [
+                _buildTimeColumn("CHECK-IN", _formatTime(attend.checkIn), Icons.access_time_filled_rounded, Colors.blue),
+                const Spacer(),
+                Container(width: 1, height: 25, color: Colors.grey.withOpacity(0.1)),
+                const Spacer(),
+                _buildTimeColumn("CHECK-OUT", _formatTime(attend.checkOut), Icons.alarm_on_rounded, Colors.orange),
+              ],
             ),
           ),
         ],
@@ -470,115 +304,103 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildDurationInfo(String checkIn, String checkOut) {
-    try {
-      // Parse both times as UTC and convert to local for accurate calculation
-      final checkInTime = DateTime.parse(checkIn).toLocal();
-      final checkOutTime = DateTime.parse(checkOut).toLocal();
-      final duration = checkOutTime.difference(checkInTime);
-
-      final hours = duration.inHours;
-      final minutes = duration.inMinutes.remainder(60);
-
-      String durationText;
-      if (hours > 0) {
-        durationText = '${hours}h ${minutes}m';
-      } else {
-        durationText = '${minutes}m';
-      }
-
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.purple[50],
-          borderRadius: BorderRadius.circular(8),
+  Widget _buildTimeColumn(String label, String time, IconData icon, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+          child: Icon(icon, size: 12, color: color),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.access_time, size: 14, color: Colors.purple[700]),
-            const SizedBox(width: 6),
-            Text(
-              'Total: $durationText',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.purple[700],
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 0.5)),
+            Text(time, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
           ],
         ),
-      );
-    } catch (e) {
-      return const SizedBox();
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'present':
-        return Colors.green;
-      case 'late':
-        return Colors.orange;
-      case 'absent':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          'Attendance History',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.blue[700],
-        elevation: 1,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: Colors.blue[700]),
-            onPressed: _isRefreshing ? null : _refreshData,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
-      body:
-          _isLoading
-              ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text(
-                      'Loading your attendance history...',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              )
-              : _errorMessage != null
-              ? _buildErrorState()
-              : _attendances.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                onRefresh: _refreshData,
-                color: Colors.blue,
-                backgroundColor: Colors.white,
-                child: ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: _attendances.length,
-                  itemBuilder: (context, index) {
-                    return _buildAttendanceCard(_attendances[index], index);
-                  },
-                ),
-              ),
+      ],
     );
   }
+
+  Widget _buildLoadMore(Color saffron) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: GestureDetector(
+          onTap: () => setState(() => _visibleCount += 5),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)]),
+            child: const Text("MORE RECORDS", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return Center(child: CircularProgressIndicator(color: const Color(0xFFFF9933)));
+  }
+
+  Widget _buildEmpty() {
+    return const Center(child: Text("NO RECORDS FOUND", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.grey)));
+  }
+
+  // Utils
+  String _getDayOnly(String date) => date.split('-')[2];
+  String _getMonthName(int month) => ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][month - 1];
+  String _getDayName(String date) => ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"][DateTime.parse(date).weekday - 1];
+  
+  String _formatTime(String? time) {
+    if (time == null || time == "N/A") return "--:--";
+    try {
+      final t = DateTime.parse(time).toLocal();
+      final h = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
+      return "${h.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')} ${t.hour >= 12 ? 'PM':'AM'}";
+    } catch (e) { return "--:--"; }
+  }
+
+  Future<void> _selectDateRange() async {
+    final res = await showDateRangePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime.now());
+    if (res != null) {
+      setState(() { _startDate = res.start; _endDate = res.end; });
+      _applyFilters();
+      _listController.forward(from: 0);
+    }
+  }
+
+  void _clearFilters() {
+    setState(() { _startDate = null; _endDate = null; });
+    _applyFilters();
+    _listController.forward(from: 0);
+  }
+}
+
+// Painters are same
+class RadarSweepPainter extends CustomPainter {
+  final double angle;
+  final Color color;
+  RadarSweepPainter({required this.angle, required this.color});
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..shader = SweepGradient(center: Alignment.center, startAngle: angle, endAngle: angle + 0.5, colors: [color.withOpacity(0), color]).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawCircle(Offset(size.width / 2, size.height / 2), size.longestSide, paint);
+  }
+  @override
+  bool shouldRepaint(RadarSweepPainter old) => old.angle != angle;
+}
+
+class FlagBannerPainter extends CustomPainter {
+  final Color saffron, green;
+  FlagBannerPainter({required this.saffron, required this.green});
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    canvas.drawPath(Path()..moveTo(0, 0)..lineTo(size.width * 0.7, 0)..lineTo(0, size.height * 0.45)..close(), paint..color = saffron);
+    canvas.drawPath(Path()..moveTo(size.width, size.height)..lineTo(size.width * 0.3, size.height)..lineTo(size.width, size.height * 0.55)..close(), paint..color = green);
+  }
+  @override
+  bool shouldRepaint(CustomPainter old) => false;
 }
