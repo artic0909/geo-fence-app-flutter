@@ -7,6 +7,7 @@ class Attendance {
   final String locationName;
   final String? checkInLoc;
   final String? checkOutLoc;
+  final String? reason;
   final String type;
 
   Attendance({
@@ -18,6 +19,7 @@ class Attendance {
     required this.locationName,
     this.checkInLoc,
     this.checkOutLoc,
+    this.reason,
     required this.type,
   });
 
@@ -51,6 +53,7 @@ class Attendance {
       locationName: locName,
       checkInLoc: json['checkin_loc']?.toString(),
       checkOutLoc: json['checkout_loc']?.toString(),
+      reason: json['reason']?.toString(),
       type: json['type']?.toString() ?? 'normal',
     );
   }

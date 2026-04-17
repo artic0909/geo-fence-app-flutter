@@ -106,6 +106,7 @@ class ApiService {
     double lng,
     File image,
     String? location,
+    String? reason,
   ) async {
     var request = http.MultipartRequest(
       'POST',
@@ -116,6 +117,7 @@ class ApiService {
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
     if (location != null) request.fields['checkin_location'] = location;
+    if (reason != null) request.fields['reason'] = reason;
 
     request.files.add(await http.MultipartFile.fromPath('photo', image.path));
 
@@ -127,6 +129,7 @@ class ApiService {
     double lng,
     File image,
     String? location,
+    String? reason,
   ) async {
     var request = http.MultipartRequest(
       'POST',
@@ -137,6 +140,7 @@ class ApiService {
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
     if (location != null) request.fields['checkout_location'] = location;
+    if (reason != null) request.fields['reason'] = reason;
 
     request.files.add(await http.MultipartFile.fromPath('photo', image.path));
 

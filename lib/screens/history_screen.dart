@@ -214,10 +214,17 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     // Clean up location strings if they contain coordinates but we have no address
     String _cleanLocation(String? loc) {
       if (loc == null || loc == "" || loc == "null") return "Location Not Recorded";
-      if (loc.contains("Outside at ")) {
-         // Keep it as is or try to beautify?
+      
+      // If it's a raw coordinate string from old code, make it cleaner
+      String clean = loc.replaceAll("Outside at ", "").replaceAll("Location at ", "").replaceAll("End Outside at ", "");
+      
+      // If the result is just digits and commas, maybe add a label
+      final reg = RegExp(r'^-?\d+\.\d+,\s*-?\d+\.\d+$');
+      if (reg.hasMatch(clean)) {
+        return "At Coordinates: $clean";
       }
-      return loc;
+      
+      return clean;
     }
     
     return Container(
@@ -308,6 +315,32 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                   ),
                 ),
               ],
+            ),
+          ),
+
+          // REASON SECTION (New)
+          if (attend.isOutside && attend.reason != null && attend.reason != "" && attend.reason != "null")
+          Padding(
+            padding: const EdgeInsets.only(left: 20, right: 20, bottom: 15),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.withOpacity(0.1)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.comment_rounded, size: 10, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "REASON: ${attend.reason}",
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.orange, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 

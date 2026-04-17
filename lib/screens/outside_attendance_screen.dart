@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../services/api_service.dart';
@@ -27,6 +28,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   String _orgName = 'Official Organization';
   LatLng? _currentLocation;
   final MapController _mapController = MapController();
+  final TextEditingController _reasonController = TextEditingController();
 
   late AnimationController _pulseController;
   late AnimationController _refreshController;
@@ -53,6 +55,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   void dispose() {
     _pulseController.dispose();
     _refreshController.dispose();
+    _reasonController.dispose();
     super.dispose();
   }
 
@@ -123,28 +126,41 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
   Future<String> _getAddress(double lat, double lng) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng).timeout(const Duration(seconds: 4));
       if (placemarks.isNotEmpty) {
         Placemark p = placemarks.first;
-        // Construct a clean address
-        String name = p.name ?? "";
         String street = p.street ?? "";
         String subLocality = p.subLocality ?? "";
         String locality = p.locality ?? "";
-        
-        if (street.contains("Unnamed Road")) street = "";
-        
+        if (street.contains("Unnamed Road") || street.contains("+")) street = "";
         List<String> parts = [street, subLocality, locality].where((s) => s.isNotEmpty).toList();
-        if (parts.isEmpty) return "${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
-        return parts.join(", ");
+        if (parts.isNotEmpty) return parts.join(", ");
       }
-    } catch (e) {
-      print("Geocoding error: $e");
-    }
-    return "${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
+    } catch (e) {}
+
+    try {
+      final url = Uri.parse("https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1");
+      final response = await http.get(url, headers: {'User-Agent': 'GeofenceApp/1.0'}).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        String? displayName = data['display_name'];
+        if (displayName != null) {
+          List<String> parts = displayName.split(', ');
+          if (parts.length > 3) return "${parts[0]}, ${parts[1]}, ${parts[2]}";
+          return displayName;
+        }
+      }
+    } catch (e) {}
+
+    return "Location at ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
   }
 
   Future<void> _outsideCheckIn() async {
+    if (_reasonController.text.trim().isEmpty) {
+      _showError('Please provide a reason for outside attendance');
+      return;
+    }
+
     setState(() {
       _isChecking = true;
       _status = 'Locking GPS...';
@@ -167,7 +183,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       final String locationDesc = await _getAddress(pos.latitude, pos.longitude);
       
       setState(() => _status = 'Verifying Outside Check-in...');
-      final res = await ApiService.outsideCheckIn(pos.latitude, pos.longitude, photo, locationDesc);
+      final res = await ApiService.outsideCheckIn(
+        pos.latitude, pos.longitude, photo, locationDesc, _reasonController.text.trim()
+      );
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final prefs = await SharedPreferences.getInstance();
@@ -175,6 +193,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         setState(() {
           _isOutsideCheckedIn = true;
           _status = 'Outside Check-in Confirmed!';
+          _reasonController.clear();
         });
       } else {
         _showError('Outside Check-in Rejected');
@@ -209,7 +228,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       final String locationDesc = await _getAddress(pos.latitude, pos.longitude);
 
       setState(() => _status = 'Processing Outside Check-out...');
-      final res = await ApiService.outsideCheckOut(pos.latitude, pos.longitude, photo, locationDesc);
+      final res = await ApiService.outsideCheckOut(
+        pos.latitude, pos.longitude, photo, locationDesc, _reasonController.text.trim()
+      );
 
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
@@ -217,6 +238,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         setState(() {
           _isOutsideCheckedIn = false;
           _status = 'Outside Check-out Logged!';
+          _reasonController.clear();
         });
       } else {
         _showError('Outside Check-out Rejected');
@@ -229,9 +251,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   }
 
   void _showError(String m) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(m), backgroundColor: Colors.red)
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red));
   }
 
   @override
@@ -251,7 +271,19 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               _buildTopBar(saffron),
               _buildSatelliteMap(saffron),
               _buildStatusRow(),
-              Expanded(child: Center(child: _buildAttendanceButton(Colors.orange))),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 30),
+                      _buildReasonInput(saffron),
+                      const SizedBox(height: 10), // Adjust spacing
+                      _buildAttendanceButton(Colors.orange),
+                      const SizedBox(height: 30),
+                    ],
+                  ),
+                ),
+              ),
               _buildGuideSection(saffron),
               const SizedBox(height: 25),
             ],
@@ -271,11 +303,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           child: Row(
             children: [
               IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20), onPressed: () {
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                } else {
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-                }
+                if (Navigator.canPop(context)) Navigator.pop(context);
+                else Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
               }),
               const SizedBox(width: 5),
               CircleAvatar(backgroundColor: saffron.withOpacity(0.1), child: Icon(Icons.person_rounded, color: saffron)),
@@ -300,7 +329,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
   Widget _buildSatelliteMap(Color saffron) {
     return Container(
-      height: 320,
+      height: 280, // Reduced height to fit reason input
       width: double.infinity,
       decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)]),
       child: Stack(
@@ -374,11 +403,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               if (!_isOutsideCheckedIn)
                 GestureDetector(
                   onTap: () {
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context);
-                    } else {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-                    }
+                    if (Navigator.canPop(context)) Navigator.pop(context);
+                    else Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -399,11 +425,35 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     );
   }
 
+  Widget _buildReasonInput(Color saffron) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)],
+      ),
+      child: TextField(
+        controller: _reasonController,
+        maxLines: 2,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        decoration: InputDecoration(
+          hintText: _isOutsideCheckedIn ? "Summary of work done... (Optional)" : "Reason for outside duty... (Required)",
+          hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400, fontWeight: FontWeight.w500),
+          prefixIcon: Icon(Icons.edit_note_rounded, color: saffron),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAttendanceButton(Color orange) {
     return GestureDetector(
       onTap: _isChecking ? null : _toggleOutsideAttendance,
       child: Container(
-        width: 200, height: 200,
+        width: 180, height: 180,
         decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.2), border: Border.all(color: Colors.white.withOpacity(0.5), width: 2)),
         child: Center(
           child: Stack(
@@ -412,19 +462,16 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               AnimatedBuilder(
                 animation: _pulseController,
                 builder: (context, child) => Container(
-                  width: 160 + (20 * _pulseController.value),
-                  height: 160 + (20 * _pulseController.value),
+                  width: 140 + (20 * _pulseController.value),
+                  height: 140 + (20 * _pulseController.value),
                   decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withOpacity(1 - _pulseController.value), width: 2)),
                 ),
               ),
               Container(
-                width: 150, height: 150,
+                width: 130, height: 130,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
-                    colors: _isOutsideCheckedIn ? [const Color(0xFFFF5722), const Color(0xFFE64A19)] : [const Color(0xFFFFB74D), const Color(0xFFF57C00)],
-                  ),
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: _isOutsideCheckedIn ? [const Color(0xFFFF5722), const Color(0xFFE64A19)] : [const Color(0xFFFFB74D), const Color(0xFFF57C00)]),
                   boxShadow: [BoxShadow(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
                 child: _isChecking 
@@ -432,9 +479,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(_isOutsideCheckedIn ? Icons.exit_to_app_rounded : Icons.add_location_alt_rounded, color: Colors.white, size: 50),
-                        const SizedBox(height: 10),
-                        Text(_isOutsideCheckedIn ? "FINISH OUTSIDE" : "START OUTSIDE", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                        Icon(_isOutsideCheckedIn ? Icons.exit_to_app_rounded : Icons.add_location_alt_rounded, color: Colors.white, size: 40),
+                        const SizedBox(height: 8),
+                        Text(_isOutsideCheckedIn ? "FINISH" : "START", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
                       ],
                     ),
               ),
@@ -460,7 +507,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               children: [
                 const Text("OUTSIDE MODE ACTIVE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
                 const SizedBox(height: 5),
-                Text("This mode records your location without geofence restrictions. Ideal for site visits or client meetings.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
+                Text("Please provide a valid reason. This session will be recorded for admin review.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
               ],
             ),
           ),
