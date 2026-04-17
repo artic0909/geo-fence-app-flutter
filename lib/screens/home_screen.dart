@@ -29,6 +29,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final MapController _mapController = MapController();
 
   late AnimationController _pulseController;
+  late AnimationController _refreshController;
+  bool _isMapRefreshing = false;
 
   @override
   void initState() {
@@ -40,11 +42,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+
+    _refreshController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _refreshController.dispose();
     super.dispose();
   }
 
@@ -68,7 +76,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       print('Location error: $e');
     }
   }
-
+  Future<void> _refreshMap() async {
+    if (_isMapRefreshing) return;
+    setState(() => _isMapRefreshing = true);
+    _refreshController.repeat();
+    
+    try {
+      await Future.wait([_initLocation(), _loadUserData()]);
+      await Future.delayed(const Duration(milliseconds: 500)); // Ensure animation is visible
+    } finally {
+      _refreshController.stop();
+      if (mounted) setState(() => _isMapRefreshing = false);
+    }
+  }
   Future<void> _toggleAttendance() async {
     if (_isCheckedIn) {
       await _checkOut();
@@ -284,52 +304,84 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10),
         ],
       ),
-      child: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter: _currentLocation ?? const LatLng(22.5726, 88.3639),
-          initialZoom: 16,
-        ),
+      child: Stack(
         children: [
-          TileLayer(
-            // Hybrid View (Satellite + Labels)
-            urlTemplate: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-            userAgentPackageName: 'com.palgeo.app',
-          ),
-          if (_currentLocation != null)
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: _currentLocation!,
-                  width: 60,
-                  height: 60,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AnimatedBuilder(
-                        animation: _pulseController,
-                        builder:
-                            (context, child) => Container(
-                              width: 30 + (30 * _pulseController.value),
-                              height: 30 + (30 * _pulseController.value),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: saffron.withOpacity(
-                                  1 - _pulseController.value,
-                                ),
-                              ),
-                            ),
-                      ),
-                      const Icon(
-                        Icons.location_on,
-                        color: Colors.red,
-                        size: 35,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _currentLocation ?? const LatLng(22.5726, 88.3639),
+              initialZoom: 16,
             ),
+            children: [
+              TileLayer(
+                // Hybrid View (Satellite + Labels)
+                urlTemplate: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+                userAgentPackageName: 'com.palgeo.app',
+              ),
+              if (_currentLocation != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: _currentLocation!,
+                      width: 60,
+                      height: 60,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          AnimatedBuilder(
+                            animation: _pulseController,
+                            builder:
+                                (context, child) => Container(
+                                  width: 30 + (30 * _pulseController.value),
+                                  height: 30 + (30 * _pulseController.value),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: saffron.withOpacity(
+                                      1 - _pulseController.value,
+                                    ),
+                                  ),
+                                ),
+                          ),
+                          const Icon(
+                            Icons.location_on,
+                            color: Colors.red,
+                            size: 35,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+
+          // Refresh Button Over Map
+          Positioned(
+            top: 15,
+            right: 15,
+            child: GestureDetector(
+              onTap: _refreshMap,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: RotationTransition(
+                  turns: _refreshController,
+                  child: Icon(Icons.refresh_rounded, color: saffron, size: 20),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
