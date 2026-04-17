@@ -5,7 +5,9 @@ class Attendance {
   final String? checkOut;
   final String status;
   final String locationName;
-  final String type; // 'normal' or 'outside'
+  final String? checkInLoc;
+  final String? checkOutLoc;
+  final String type;
 
   Attendance({
     required this.id,
@@ -14,6 +16,8 @@ class Attendance {
     this.checkOut,
     required this.status,
     required this.locationName,
+    this.checkInLoc,
+    this.checkOutLoc,
     required this.type,
   });
 
@@ -29,7 +33,6 @@ class Attendance {
       return 'present';
     }
 
-    // Determine location name from geofence or outside location
     String locName = "OFFICE HUB";
     if (json['geofence'] != null && json['geofence']['name'] != null) {
       locName = json['geofence']['name'].toString();
@@ -37,7 +40,6 @@ class Attendance {
       locName = json['checkin_location'].toString();
     }
 
-    // Use date_formatted if available (sent by backend to prevent timezone shifts)
     String dateValue = (json['date_formatted'] ?? json['date'])?.toString() ?? '';
 
     return Attendance(
@@ -47,6 +49,8 @@ class Attendance {
       checkOut: json['check_out']?.toString(),
       status: parseStatus(json['status']),
       locationName: locName,
+      checkInLoc: json['checkin_loc']?.toString(),
+      checkOutLoc: json['checkout_loc']?.toString(),
       type: json['type']?.toString() ?? 'normal',
     );
   }

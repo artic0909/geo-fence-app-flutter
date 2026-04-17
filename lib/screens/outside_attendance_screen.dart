@@ -67,13 +67,11 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       }
     });
 
-    // Proactive Sync with Server
     try {
       final response = await ApiService.getEmployeeData();
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final status = data['attendance_status'];
-
         setState(() {
           _isOutsideCheckedIn = status['is_outside'] ?? false;
           if (_isOutsideCheckedIn) {
@@ -82,8 +80,6 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
             _status = 'Ready for Outside Action';
           }
         });
-
-        // Update local prefs
         await prefs.setBool('is_outside_checked_in', _isOutsideCheckedIn);
       }
     } catch (e) {
@@ -125,6 +121,29 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     }
   }
 
+  Future<String> _getAddress(double lat, double lng) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isNotEmpty) {
+        Placemark p = placemarks.first;
+        // Construct a clean address
+        String name = p.name ?? "";
+        String street = p.street ?? "";
+        String subLocality = p.subLocality ?? "";
+        String locality = p.locality ?? "";
+        
+        if (street.contains("Unnamed Road")) street = "";
+        
+        List<String> parts = [street, subLocality, locality].where((s) => s.isNotEmpty).toList();
+        if (parts.isEmpty) return "${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
+        return parts.join(", ");
+      }
+    } catch (e) {
+      print("Geocoding error: $e");
+    }
+    return "${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
+  }
+
   Future<void> _outsideCheckIn() async {
     setState(() {
       _isChecking = true;
@@ -144,20 +163,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         return;
       }
 
+      setState(() => _status = 'Detecting Address...');
+      final String locationDesc = await _getAddress(pos.latitude, pos.longitude);
+      
       setState(() => _status = 'Verifying Outside Check-in...');
-      
-      // Get human-readable address
-      String locationDesc = "Outside at ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}";
-      try {
-        final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
-        if (placemarks.isNotEmpty) {
-          final p = placemarks.first;
-          locationDesc = "${p.street}, ${p.subLocality}, ${p.locality}";
-        }
-      } catch (e) {
-        // Fallback to coordinates if geocoding fails
-      }
-      
       final res = await ApiService.outsideCheckIn(pos.latitude, pos.longitude, photo, locationDesc);
 
       if (res.statusCode == 200 || res.statusCode == 201) {
@@ -196,18 +205,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         return;
       }
 
-      setState(() => _status = 'Processing Outside Check-out...');
-      
-      // Get human-readable address for checkout
-      String locationDesc = "End Outside at ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}";
-      try {
-        final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
-        if (placemarks.isNotEmpty) {
-          final p = placemarks.first;
-          locationDesc = "Finished at ${p.street}, ${p.locality}";
-        }
-      } catch (e) {}
+      setState(() => _status = 'Detecting Address...');
+      final String locationDesc = await _getAddress(pos.latitude, pos.longitude);
 
+      setState(() => _status = 'Processing Outside Check-out...');
       final res = await ApiService.outsideCheckOut(pos.latitude, pos.longitude, photo, locationDesc);
 
       if (res.statusCode == 200) {
@@ -242,37 +243,15 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. Diagonal Flag Background
-          Positioned.fill(
-            child: CustomPaint(
-              painter: FlagBannerPainter(saffron: saffron, green: green),
-            ),
-          ),
+          Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
+          Positioned.fill(child: Opacity(opacity: 0.15, child: Image.asset('assets/map.png', fit: BoxFit.cover))),
 
-          // 2. Texture Layer
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.15,
-              child: Image.asset('assets/map.png', fit: BoxFit.cover),
-            ),
-          ),
-
-          // 3. Main Content
           Column(
             children: [
-              // TopBar
               _buildTopBar(saffron),
-
-              // Satellite Map
               _buildSatelliteMap(saffron),
-
-              // System Status
               _buildStatusRow(),
-
-              // Attendance Button
               Expanded(child: Center(child: _buildAttendanceButton(Colors.orange))),
-
-              // Guide Section
               _buildGuideSection(saffron),
               const SizedBox(height: 25),
             ],
@@ -285,62 +264,33 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   Widget _buildTopBar(Color saffron) {
     return Container(
       padding: const EdgeInsets.only(top: 50, left: 24, right: 24, bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-        ],
-      ),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
       child: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                onPressed: () => Navigator.pop(context),
-              ),
+              IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20), onPressed: () {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                }
+              }),
               const SizedBox(width: 5),
-              CircleAvatar(
-                backgroundColor: saffron.withOpacity(0.1),
-                child: Icon(Icons.person_rounded, color: saffron),
-              ),
+              CircleAvatar(backgroundColor: saffron.withOpacity(0.1), child: Icon(Icons.person_rounded, color: saffron)),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      _userName.toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    Text(
-                      _orgName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black.withOpacity(0.4),
-                      ),
-                    ),
+                    Text(_userName.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+                    Text(_orgName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.4))),
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.history_toggle_off_rounded),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HistoryScreen()),
-                ),
-              ),
+              IconButton(icon: const Icon(Icons.history_toggle_off_rounded), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()))),
             ],
           ),
         ),
@@ -352,31 +302,20 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     return Container(
       height: 320,
       width: double.infinity,
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10),
-        ],
-      ),
+      decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)]),
       child: Stack(
         children: [
           FlutterMap(
             mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _currentLocation ?? const LatLng(22.5726, 88.3639),
-              initialZoom: 16,
-            ),
+            options: MapOptions(initialCenter: _currentLocation ?? const LatLng(22.5726, 88.3639), initialZoom: 16),
             children: [
-              TileLayer(
-                urlTemplate: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-                userAgentPackageName: 'com.palgeo.app',
-              ),
+              TileLayer(urlTemplate: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', userAgentPackageName: 'com.palgeo.app'),
               if (_currentLocation != null)
                 MarkerLayer(
                   markers: [
                     Marker(
                       point: _currentLocation!,
-                      width: 60,
-                      height: 60,
+                      width: 60, height: 60,
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
@@ -385,10 +324,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                             builder: (context, child) => Container(
                               width: 30 + (30 * _pulseController.value),
                               height: 30 + (30 * _pulseController.value),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: saffron.withOpacity(1 - _pulseController.value),
-                              ),
+                              decoration: BoxDecoration(shape: BoxShape.circle, color: saffron.withOpacity(1 - _pulseController.value)),
                             ),
                           ),
                           const Icon(Icons.location_on, color: Colors.orange, size: 35),
@@ -400,24 +336,13 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
             ],
           ),
           Positioned(
-            top: 15,
-            right: 15,
+            top: 15, right: 15,
             child: GestureDetector(
               onTap: _refreshMap,
               child: Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-                  ],
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: RotationTransition(
-                  turns: _refreshController,
-                  child: Icon(Icons.refresh_rounded, color: saffron, size: 20),
-                ),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))], border: Border.all(color: Colors.white, width: 2)),
+                child: RotationTransition(turns: _refreshController, child: Icon(Icons.refresh_rounded, color: saffron, size: 20)),
               ),
             ),
           ),
@@ -437,25 +362,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "SYSTEM STATUS",
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.grey.shade600,
-                    letterSpacing: 1,
-                  ),
-                ),
-                Text(
-                  _status,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF2E2E2E),
-                  ),
-                ),
+                Text("SYSTEM STATUS", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.grey.shade600, letterSpacing: 1)),
+                Text(_status, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF2E2E2E))),
               ],
             ),
           ),
@@ -466,48 +374,23 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               if (!_isOutsideCheckedIn)
                 GestureDetector(
                   onTap: () {
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  } else {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const HomeScreen()),
-                    );
-                  }
-                },
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                    }
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.green.withOpacity(0.2)),
-                    ),
-                    child: const Text(
-                      "ONSITE DUTY",
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.green,
-                      ),
-                    ),
+                    decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.green.withOpacity(0.2))),
+                    child: const Text("ONSITE DUTY", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.green)),
                   ),
                 ),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _isOutsideCheckedIn ? Colors.orange.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: (_isOutsideCheckedIn ? Colors.orange : Colors.grey).withOpacity(0.2)),
-                ),
-                child: Text(
-                  _isOutsideCheckedIn ? "DUTY ON" : "DUTY OFF",
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: _isOutsideCheckedIn ? Colors.orange : Colors.grey,
-                  ),
-                ),
+                decoration: BoxDecoration(color: _isOutsideCheckedIn ? Colors.orange.withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: (_isOutsideCheckedIn ? Colors.orange : Colors.grey).withOpacity(0.2))),
+                child: Text(_isOutsideCheckedIn ? "DUTY ON" : "DUTY OFF", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: _isOutsideCheckedIn ? Colors.orange : Colors.grey)),
               ),
             ],
           ),
@@ -520,13 +403,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     return GestureDetector(
       onTap: _isChecking ? null : _toggleOutsideAttendance,
       child: Container(
-        width: 200,
-        height: 200,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.2),
-          border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
-        ),
+        width: 200, height: 200,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.2), border: Border.all(color: Colors.white.withOpacity(0.5), width: 2)),
         child: Center(
           child: Stack(
             alignment: Alignment.center,
@@ -536,55 +414,27 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                 builder: (context, child) => Container(
                   width: 160 + (20 * _pulseController.value),
                   height: 160 + (20 * _pulseController.value),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withOpacity(1 - _pulseController.value),
-                      width: 2,
-                    ),
-                  ),
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withOpacity(1 - _pulseController.value), width: 2)),
                 ),
               ),
               Container(
-                width: 150,
-                height: 150,
+                width: 150, height: 150,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: _isOutsideCheckedIn 
-                      ? [const Color(0xFFFF5722), const Color(0xFFE64A19)] 
-                      : [const Color(0xFFFFB74D), const Color(0xFFF57C00)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: _isOutsideCheckedIn ? [const Color(0xFFFF5722), const Color(0xFFE64A19)] : [const Color(0xFFFFB74D), const Color(0xFFF57C00)],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withOpacity(0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
+                  boxShadow: [BoxShadow(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
                 child: _isChecking 
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          _isOutsideCheckedIn ? Icons.exit_to_app_rounded : Icons.add_location_alt_rounded,
-                          color: Colors.white,
-                          size: 50,
-                        ),
+                        Icon(_isOutsideCheckedIn ? Icons.exit_to_app_rounded : Icons.add_location_alt_rounded, color: Colors.white, size: 50),
                         const SizedBox(height: 10),
-                        Text(
-                          _isOutsideCheckedIn ? "FINISH OUTSIDE" : "START OUTSIDE",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1,
-                          ),
-                        ),
+                        Text(_isOutsideCheckedIn ? "FINISH OUTSIDE" : "START OUTSIDE", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
                       ],
                     ),
               ),
@@ -599,46 +449,18 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20),
-        ],
-        border: Border.all(color: Colors.white),
-      ),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20)], border: Border.all(color: Colors.white)),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: saffron.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Icon(Icons.info_outline_rounded, color: saffron),
-          ),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: saffron.withOpacity(0.1), borderRadius: BorderRadius.circular(15)), child: Icon(Icons.info_outline_rounded, color: saffron)),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "OUTSIDE MODE ACTIVE",
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
+                const Text("OUTSIDE MODE ACTIVE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
                 const SizedBox(height: 5),
-                Text(
-                  "This mode records your location without geofence restrictions. Ideal for site visits or client meetings.",
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black.withOpacity(0.5),
-                  ),
-                ),
+                Text("This mode records your location without geofence restrictions. Ideal for site visits or client meetings.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
               ],
             ),
           ),
@@ -649,29 +471,14 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 }
 
 class FlagBannerPainter extends CustomPainter {
-  final Color saffron;
-  final Color green;
+  final Color saffron, green;
   FlagBannerPainter({required this.saffron, required this.green});
-
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
-
-    Path saffronPath = Path();
-    saffronPath.moveTo(0, 0);
-    saffronPath.lineTo(size.width * 0.7, 0);
-    saffronPath.lineTo(0, size.height * 0.45);
-    saffronPath.close();
-    canvas.drawPath(saffronPath, paint..color = saffron);
-
-    Path greenPath = Path();
-    greenPath.moveTo(size.width, size.height);
-    greenPath.lineTo(size.width * 0.3, size.height);
-    greenPath.lineTo(size.width, size.height * 0.55);
-    greenPath.close();
-    canvas.drawPath(greenPath, paint..color = green);
+    canvas.drawPath(Path()..moveTo(0, 0)..lineTo(size.width * 0.7, 0)..lineTo(0, size.height * 0.45)..close(), paint..color = saffron);
+    canvas.drawPath(Path()..moveTo(size.width, size.height)..lineTo(size.width * 0.3, size.height)..lineTo(size.width, size.height * 0.55)..close(), paint..color = green);
   }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

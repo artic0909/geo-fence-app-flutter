@@ -201,7 +201,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   Widget _buildNewCard(Attendance attend, Color saffron, Color green) {
     final status = attend.status.toLowerCase();
     final Color color = attend.isOutside 
-        ? Colors.orange 
+        ? Colors.deepOrange 
         : (status == 'present' ? green : (status == 'late' ? saffron : Colors.red));
     
     DateTime? dt;
@@ -210,25 +210,35 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       if (ds.length >= 10) ds = ds.substring(0, 10);
       dt = DateTime.parse(ds); 
     } catch(e) {}
+
+    // Clean up location strings if they contain coordinates but we have no address
+    String _cleanLocation(String? loc) {
+      if (loc == null || loc == "" || loc == "null") return "Location Not Recorded";
+      if (loc.contains("Outside at ")) {
+         // Keep it as is or try to beautify?
+      }
+      return loc;
+    }
     
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: attend.isOutside ? const Color(0xFFFFF8F0) : Colors.white, // Subtle orange tint for outside cards
+        color: attend.isOutside ? const Color(0xFFFFF3E0) : Colors.white, // Deeper orange for outside (Amber 50 -> Orange 50)
         borderRadius: BorderRadius.circular(30),
-        border: attend.isOutside ? Border.all(color: Colors.orange.withOpacity(0.1), width: 1) : null,
-        boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
+        border: attend.isOutside ? Border.all(color: Colors.orange.withOpacity(0.3), width: 1.5) : null,
+        boxShadow: [BoxShadow(color: color.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   width: 55,
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(15)),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -250,24 +260,40 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                     children: [
                       Text(
                         _getDayName(attend.date).toUpperCase(), 
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 6),
+                      // Check-in Location
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(attend.isOutside ? Icons.add_location_alt_rounded : Icons.location_on_rounded, size: 10, color: color.withOpacity(0.5)),
-                          const SizedBox(width: 4),
-                          Flexible(
+                          Icon(attend.isOutside ? Icons.login_rounded : Icons.location_on_rounded, size: 10, color: color.withOpacity(0.6)),
+                          const SizedBox(width: 6),
+                          Expanded(
                             child: Text(
-                              attend.locationName, 
-                              maxLines: 2, // Allow 2 lines for address
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.4))
+                              _cleanLocation(attend.checkInLoc ?? attend.locationName), 
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.5))
                             ),
                           ),
                         ],
+                      ),
+                      // Check-out Location (Only for outside if different)
+                      if (attend.isOutside && attend.checkOutLoc != null && attend.checkOutLoc != "" && attend.checkOutLoc != "null")
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.logout_rounded, size: 10, color: Colors.deepOrange.withOpacity(0.6)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _cleanLocation(attend.checkOutLoc), 
+                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.5))
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -288,7 +314,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             decoration: BoxDecoration(
-              color: attend.isOutside ? Colors.orange.withOpacity(0.04) : const Color(0xFFF8F9FA),
+              color: attend.isOutside ? Colors.orange.withOpacity(0.08) : const Color(0xFFF8F9FA),
               borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
             child: Row(
