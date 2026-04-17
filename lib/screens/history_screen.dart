@@ -77,7 +77,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     setState(() {
       _filteredAttendances = _allAttendances.where((attendance) {
         try {
-          final date = DateTime.parse(attendance.date);
+          String ds = attendance.date;
+          if (ds.length >= 10) ds = ds.substring(0, 10);
+          final date = DateTime.parse(ds);
           final start = _startDate != null ? DateTime(_startDate!.year, _startDate!.month, _startDate!.day) : null;
           final end = _endDate != null ? DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59) : null;
           if (start != null && date.isBefore(start)) return false;
@@ -98,7 +100,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Background components
           Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
           Positioned.fill(child: Opacity(opacity: 0.1, child: Image.asset('assets/map.png', fit: BoxFit.cover))),
           Positioned.fill(
@@ -201,9 +202,12 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     final status = attend.status.toLowerCase();
     final Color color = status == 'present' ? green : (status == 'late' ? saffron : Colors.red);
     
-    // Parse date properly once
     DateTime? dt;
-    try { dt = DateTime.parse(attend.date); } catch(e) {}
+    try { 
+      String ds = attend.date;
+      if (ds.length >= 10) ds = ds.substring(0, 10);
+      dt = DateTime.parse(ds); 
+    } catch(e) {}
     
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -214,12 +218,10 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       ),
       child: Column(
         children: [
-          // Upper Part: Date & Status
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                // Date Block (Fixed Width)
                 Container(
                   width: 55,
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -239,7 +241,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                   ),
                 ),
                 const SizedBox(width: 15),
-                // Info Column (Expanded)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,7 +258,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              "OFFICE HUB", 
+                              attend.locationName, 
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.3))
@@ -269,7 +270,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Status Badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
@@ -282,7 +282,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             ),
           ),
 
-          // Lower Part: Visual Time Slot
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             decoration: BoxDecoration(
@@ -348,13 +347,21 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     return const Center(child: Text("NO RECORDS FOUND", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.grey)));
   }
 
-  // Utils
-  String _getDayOnly(String date) => date.split('-')[2];
   String _getMonthName(int month) => ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][month - 1];
-  String _getDayName(String date) => ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"][DateTime.parse(date).weekday - 1];
+  
+  String _getDayName(String date) {
+    try {
+      String ds = date;
+      if (ds.length >= 10) ds = ds.substring(0, 10);
+      DateTime dt = DateTime.parse(ds);
+      return ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"][dt.weekday - 1];
+    } catch (e) {
+      return "???";
+    }
+  }
   
   String _formatTime(String? time) {
-    if (time == null || time == "N/A") return "--:--";
+    if (time == null || time == "N/A" || time == "") return "--:--";
     try {
       final t = DateTime.parse(time).toLocal();
       final h = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
@@ -378,7 +385,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 }
 
-// Painters are same
 class RadarSweepPainter extends CustomPainter {
   final double angle;
   final Color color;
