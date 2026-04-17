@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isChecking = false;
   bool _isCheckedIn = false;
   String _status = 'Ready for action';
-  String _userName = 'Tasrul Islam';
+  String _userName = 'User Name';
   String _orgName = 'Ranihati Construction Private Limited';
   String _lastActionDate = ''; 
   LatLng? _currentLocation;
@@ -59,18 +59,46 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // Initial load from local storage
     setState(() {
       _userName = prefs.getString('user_name') ?? 'User Name';
       _orgName = prefs.getString('org_name') ?? 'Official Organization';
       _isCheckedIn = prefs.getBool('is_checked_in') ?? false;
       _lastActionDate = prefs.getString('last_action_date') ?? '';
-      
-      if (_isCheckedIn) {
-        _status = 'You are currently on duty';
-      } else if (_lastActionDate == DateTime.now().toIso8601String().split('T')[0]) {
-        _status = 'Attendance completed for today';
-      }
     });
+
+    // Proactive Sync with Server
+    try {
+      final response = await ApiService.getEmployeeData();
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final status = data['attendance_status'];
+        final today = DateTime.now().toIso8601String().split('T')[0];
+
+        setState(() {
+          _userName = data['employee_name'] ?? _userName;
+          _isCheckedIn = status['is_checked_in'] ?? false;
+          if (status['is_completed'] == true) {
+            _lastActionDate = today;
+          }
+          
+          if (_isCheckedIn) {
+            _status = 'You are currently on duty';
+          } else if (_lastActionDate == today) {
+            _status = 'Attendance completed for today';
+          } else {
+            _status = 'Ready for action';
+          }
+        });
+
+        // Sync back to local storage
+        await prefs.setBool('is_checked_in', _isCheckedIn);
+        await prefs.setString('last_action_date', _lastActionDate);
+      }
+    } catch (e) {
+      print('Sync error: $e');
+    }
   }
 
   Future<void> _initLocation() async {
@@ -103,8 +131,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (_isCheckedIn) {
       await _checkOut();
     } else {
-      // Don't allow check-in if already completed today
-      if (_lastActionDate == DateTime.now().toIso8601String().split('T')[0]) {
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      if (_lastActionDate == today) {
         _showError('You have already completed attendance for today.');
         return;
       }
@@ -136,15 +164,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
+        final today = DateTime.now().toIso8601String().split('T')[0];
         await prefs.setBool('is_checked_in', true);
-        await prefs.setString('last_action_date', DateTime.now().toIso8601String().split('T')[0]);
+        await prefs.setString('last_action_date', today);
         setState(() {
           _isCheckedIn = true;
-          _lastActionDate = DateTime.now().toIso8601String().split('T')[0];
+          _lastActionDate = today;
           _status = 'Check-in Confirmed! ✅';
         });
       } else {
-        _showError('Check-in Rejected');
+        final error = json.decode(res.body)['error'] ?? 'Check-in Rejected';
+        _showError(error);
       }
     } catch (e) {
       _showError('Connection error');
@@ -177,15 +207,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
+        final today = DateTime.now().toIso8601String().split('T')[0];
         await prefs.setBool('is_checked_in', false);
-        await prefs.setString('last_action_date', DateTime.now().toIso8601String().split('T')[0]);
+        await prefs.setString('last_action_date', today);
         setState(() {
           _isCheckedIn = false;
-          _lastActionDate = DateTime.now().toIso8601String().split('T')[0];
+          _lastActionDate = today;
           _status = 'Check-out Logged! ✅';
         });
       } else {
-        _showError('Check-out Rejected');
+        final error = json.decode(res.body)['error'] ?? 'Check-out Rejected';
+        _showError(error);
       }
     } catch (e) {
       _showError('Connection error');
@@ -418,7 +450,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("ATTENDANCE GUIDE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+                const Text("GEOFENCE MODE ACTIVE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
                 const SizedBox(height: 5),
                 Text("Ensure you are within the geo-fence and your face is fully visible for the selfie check.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
               ],

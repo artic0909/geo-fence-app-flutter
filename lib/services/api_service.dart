@@ -143,6 +143,18 @@ class ApiService {
     return await http.Response.fromStream(await request.send());
   }
 
+  static Future<http.Response> getEmployeeData() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/employee/data'),
+        headers: await getHeaders(),
+      );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   static Future<http.Response> getAttendanceHistory() async {
     try {
       final response = await http.get(
