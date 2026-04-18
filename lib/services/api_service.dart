@@ -179,6 +179,23 @@ class ApiService {
     }
   }
 
+  static Future<http.Response> updateLocation(double lat, double lng) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/location-update'),
+        body: jsonEncode({
+          'latitude': lat,
+          'longitude': lng,
+        }),
+        headers: await getHeaders(),
+      );
+      return response;
+    } catch (e) {
+      print('Location Update Error: $e');
+      rethrow;
+    }
+  }
+
   static Future<String> _getDeviceName() async {
     // For simplicity, using a fixed device name
     return 'flutter-app';

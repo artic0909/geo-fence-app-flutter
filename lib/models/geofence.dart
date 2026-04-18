@@ -4,6 +4,7 @@ class Geofence {
   final double latitude;
   final double longitude;
   final int radius;
+  final int? trackingRadius;
   final String address;
   final bool isActive;
 
@@ -13,6 +14,7 @@ class Geofence {
     required this.latitude,
     required this.longitude,
     required this.radius,
+    this.trackingRadius,
     required this.address,
     required this.isActive,
   });
@@ -24,6 +26,7 @@ class Geofence {
       latitude: double.parse(json['latitude'].toString()),
       longitude: double.parse(json['longitude'].toString()),
       radius: json['radius'],
+      trackingRadius: json['tracking_radius'],
       address: json['address'] ?? '',
       isActive: json['is_active'] == 1,
     );

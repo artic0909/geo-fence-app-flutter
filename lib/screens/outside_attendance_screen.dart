@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
@@ -34,12 +35,14 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   late AnimationController _pulseController;
   late AnimationController _refreshController;
   bool _isMapRefreshing = false;
+  Timer? _trackingTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
     _initLocation();
+    _startTracking();
 
     _pulseController = AnimationController(
       vsync: this,
@@ -57,7 +60,24 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _pulseController.dispose();
     _refreshController.dispose();
     _reasonController.dispose();
+    _trackingTimer?.cancel();
     super.dispose();
+  }
+
+  void _startTracking() {
+    _trackingTimer?.cancel();
+    _trackingTimer = Timer.periodic(const Duration(seconds:30), (timer) {
+      _sendLocationUpdate();
+    });
+  }
+
+  Future<void> _sendLocationUpdate() async {
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      await ApiService.updateLocation(pos.latitude, pos.longitude);
+    } catch (e) {
+      print('Outside Tracking Update Failed: $e');
+    }
   }
 
   Future<void> _loadUserData() async {

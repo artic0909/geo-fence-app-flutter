@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../services/api_service.dart';
@@ -33,12 +34,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _refreshController;
   bool _isMapRefreshing = false;
+  Timer? _trackingTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
     _initLocation();
+    _startTracking();
 
     _pulseController = AnimationController(
       vsync: this,
@@ -55,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void dispose() {
     _pulseController.dispose();
     _refreshController.dispose();
+    _trackingTimer?.cancel();
     super.dispose();
   }
 
@@ -124,6 +128,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _mapController.move(_currentLocation!, 16);
     } catch (e) {
       print('Location error: $e');
+    }
+  }
+
+  void _startTracking() {
+    _trackingTimer?.cancel();
+    _trackingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _sendLocationUpdate();
+    });
+  }
+
+  Future<void> _sendLocationUpdate() async {
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      await ApiService.updateLocation(pos.latitude, pos.longitude);
+      // Backend handles the radius check and storage
+    } catch (e) {
+      print('Tracking Update Failed: $e');
     }
   }
 
