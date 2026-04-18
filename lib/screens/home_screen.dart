@@ -11,6 +11,7 @@ import 'dart:ui';
 import 'login_screen.dart';
 import 'outside_attendance_screen.dart';
 import 'history_screen.dart';
+import '../widgets/attendance_success_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -185,6 +186,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _lastActionDate = today;
           _status = 'Check-in Confirmed!';
         });
+
+        if (mounted) {
+          AttendanceSuccessDialog.show(
+            context, 
+            title: "Check-in Successful", 
+            message: "Your attendance has been marked. Have a productive day ahead!"
+          );
+        }
       } else {
         final error = json.decode(res.body)['error'] ?? 'Check-in Rejected';
         _showError(error);
@@ -228,6 +237,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _lastActionDate = today;
           _status = 'Check-out Logged!';
         });
+
+        if (mounted) {
+          AttendanceSuccessDialog.show(
+            context, 
+            title: "Check-out Successful", 
+            message: "Your session has ended. Thank you for your hard work today!"
+          );
+        }
       } else {
         final error = json.decode(res.body)['error'] ?? 'Check-out Rejected';
         _showError(error);

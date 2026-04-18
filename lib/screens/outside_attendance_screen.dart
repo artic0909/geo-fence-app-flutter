@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'history_screen.dart';
 import 'home_screen.dart';
+import '../widgets/attendance_success_dialog.dart';
 
 class OutsideAttendanceScreen extends StatefulWidget {
   const OutsideAttendanceScreen({super.key});
@@ -195,6 +196,14 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           _status = 'Outside Check-in Confirmed!';
           _reasonController.clear();
         });
+
+        if (mounted) {
+          AttendanceSuccessDialog.show(
+            context, 
+            title: "Outside Check-in", 
+            message: "Your off-site duty session has started successfully."
+          );
+        }
       } else {
         _showError('Outside Check-in Rejected');
       }
@@ -240,6 +249,14 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           _status = 'Outside Check-out Logged!';
           _reasonController.clear();
         });
+
+        if (mounted) {
+          AttendanceSuccessDialog.show(
+            context, 
+            title: "Outside Session Ended", 
+            message: "Your off-site duty has been logged. Return safely!"
+          );
+        }
       } else {
         _showError('Outside Check-out Rejected');
       }
