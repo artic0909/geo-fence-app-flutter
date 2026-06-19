@@ -1,0 +1,4 @@
+-keep class id.flutter.flutter_background_service.** { *; }
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+-keep class com.baseflow.geolocator.** { *; }
+-keep class dev.fluttercommunity.plus.device_info.** { *; }

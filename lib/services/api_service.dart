@@ -179,13 +179,14 @@ class ApiService {
     }
   }
 
-  static Future<http.Response> updateLocation(double lat, double lng) async {
+  static Future<http.Response> updateLocation(double lat, double lng, {String? status}) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/location-update'),
         body: jsonEncode({
           'latitude': lat,
           'longitude': lng,
+          'status': status ?? 'active',
         }),
         headers: await getHeaders(),
       );

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import 'permission_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -72,6 +74,13 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
+    // Check critical permissions first
+    bool hasPermissions = await _checkPermissions();
+    if (!hasPermissions) {
+      _fadeAndNavigate(const PermissionScreen());
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
@@ -80,6 +89,16 @@ class _SplashScreenState extends State<SplashScreen>
     } else {
       _fadeAndNavigate(const LoginScreen());
     }
+  }
+
+  Future<bool> _checkPermissions() async {
+    PermissionStatus location = await Permission.location.status;
+    PermissionStatus camera = await Permission.camera.status;
+    PermissionStatus notification = await Permission.notification.status;
+    
+    // We consider 'granted' as the threshold for smooth entry.
+    // Background location (Always) we check in PermissionScreen if they want.
+    return location.isGranted && camera.isGranted && notification.isGranted;
   }
 
   void _fadeAndNavigate(Widget screen) {

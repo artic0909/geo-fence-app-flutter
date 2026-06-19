@@ -46,6 +46,9 @@ dependencies:
   flutter_map: ^8.3.0
   latlong2: ^0.9.1
   geocoding: ^4.0.0
+  flutter_background_service: ^5.1.0
+  flutter_local_notifications: ^19.5.0
+  device_info_plus: ^12.4.0
 
 flutter_launcher_icons:
   android: "ic_launcher"

@@ -20,6 +20,12 @@ class LocationService {
       }
     }
     
+    // For background tracking, we ideally need 'always' permission
+    if (permission == LocationPermission.whileInUse) {
+       // On some devices we can request always specifically
+       permission = await Geolocator.requestPermission();
+    }
+
     if (permission == LocationPermission.deniedForever) {
       throw Exception('Location permissions are permanently denied.');
     }
