@@ -44,25 +44,19 @@ class _PermissionScreenState extends State<PermissionScreen> {
   Future<void> _requestAll() async {
     setState(() => _isLoading = true);
     
-    // 1. Basic Location
-    await Permission.location.request();
-    
-    // 2. Camera
-    await Permission.camera.request();
-    
-    // 3. Notifications
-    await Permission.notification.request();
+    try { await Permission.location.request(); } catch (e) { debugPrint(e.toString()); }
+    try { await Permission.camera.request(); } catch (e) { debugPrint(e.toString()); }
+    try { await Permission.notification.request(); } catch (e) { debugPrint(e.toString()); }
 
-    // 4. Background Location
-    if (await Permission.location.isGranted) {
-      await Permission.locationAlways.request();
+    // Requesting locationAlways immediately after location on Android 11+ causes an exception
+    // We will skip requesting it automatically here to prevent crashes. The user can use system settings.
+    
+    try { await Permission.ignoreBatteryOptimizations.request(); } catch (e) { debugPrint(e.toString()); }
+    
+    if (mounted) {
+      setState(() => _isLoading = false);
+      _checkAndNavigate();
     }
-
-    // 5. Battery Optimization
-    await Permission.ignoreBatteryOptimizations.request();
-    
-    setState(() => _isLoading = false);
-    _checkAndNavigate();
   }
 
   Future<void> _checkAndNavigate() async {
@@ -97,7 +91,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(color: Colors.white.withOpacity(0.4)),
+              child: Container(color: Colors.white.withValues(alpha: 0.4)),
             ),
           ),
 
@@ -117,7 +111,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
                   const SizedBox(height: 10),
                   Text(
                     "To ensure smooth operation and accurate tracking, we need the following access:",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5)),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.5)),
                   ),
                   const SizedBox(height: 30),
                   
@@ -134,9 +128,9 @@ class _PermissionScreenState extends State<PermissionScreen> {
                   Container(
                     padding: const EdgeInsets.all(15),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.05),
+                      color: Colors.blue.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(15),
-                      border: Border.all(color: Colors.blue.withOpacity(0.1)),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
                     ),
                     child: Row(
                       children: [
@@ -162,7 +156,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
                         backgroundColor: green,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         elevation: 5,
-                        shadowColor: green.withOpacity(0.4),
+                        shadowColor: green.withValues(alpha: 0.4),
                       ),
                       child: _isLoading 
                         ? const CircularProgressIndicator(color: Colors.white)
@@ -179,7 +173,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
                     child: OutlinedButton(
                       onPressed: openAppSettings,
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.black.withOpacity(0.1)),
+                        side: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       ),
                       child: const Text(
@@ -210,15 +204,15 @@ class _PermissionScreenState extends State<PermissionScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-            border: Border.all(color: isGranted ? Colors.green.withOpacity(0.2) : Colors.transparent),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+            border: Border.all(color: isGranted ? Colors.green.withValues(alpha: 0.2) : Colors.transparent),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: (isGranted ? Colors.green : Colors.blue).withOpacity(0.1),
+                  color: (isGranted ? Colors.green : Colors.blue).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(data['icon'], color: isGranted ? Colors.green : Colors.blue, size: 24),
@@ -230,7 +224,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
                   children: [
                     Text(data['title'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                     const SizedBox(height: 4),
-                    Text(data['desc'], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.4))),
+                    Text(data['desc'], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.4))),
                   ],
                 ),
               ),
@@ -252,8 +246,8 @@ class FlagBannerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
-    canvas.drawPath(Path()..moveTo(0, size.height * 0.2)..lineTo(size.width, 0)..lineTo(size.width, size.height * 0.15)..lineTo(0, size.height * 0.35)..close(), paint..color = saffron.withOpacity(0.3));
-    canvas.drawPath(Path()..moveTo(0, size.height)..lineTo(size.width, size.height * 0.8)..lineTo(size.width, size.height)..close(), paint..color = green.withOpacity(0.3));
+    canvas.drawPath(Path()..moveTo(0, size.height * 0.2)..lineTo(size.width, 0)..lineTo(size.width, size.height * 0.15)..lineTo(0, size.height * 0.35)..close(), paint..color = saffron.withValues(alpha: 0.3));
+    canvas.drawPath(Path()..moveTo(0, size.height)..lineTo(size.width, size.height * 0.8)..lineTo(size.width, size.height)..close(), paint..color = green.withValues(alpha: 0.3));
   }
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;

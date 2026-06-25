@@ -2,20 +2,18 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/attendance.dart';
 import 'dart:convert';
-import 'dart:ui';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  _HistoryScreenState createState() => _HistoryScreenState();
+  State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
 class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateMixin {
   List<Attendance> _allAttendances = [];
   List<Attendance> _filteredAttendances = [];
   bool _isLoading = true;
-  String? _errorMessage;
 
   int _visibleCount = 5;
   DateTime? _startDate;
@@ -42,6 +40,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   Future<void> _loadHistory() async {
     try {
       final response = await ApiService.getAttendanceHistory();
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         List<dynamic> attendanceList = [];
@@ -55,21 +54,21 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
 
         final List<Attendance> parsedAttendances = [];
         for (var item in attendanceList) {
-          try { parsedAttendances.add(Attendance.fromJson(item)); } catch (e) {}
+          try { parsedAttendances.add(Attendance.fromJson(item)); } catch (e) { // ignore: empty_catches
+          }
         }
 
         setState(() {
           _allAttendances = parsedAttendances;
           _isLoading = false;
-          _errorMessage = null;
           _applyFilters();
           _listController.forward(from: 0);
         });
       } else {
-        setState(() { _isLoading = false; _errorMessage = 'Failed to load history'; });
+        if (mounted) setState(() { _isLoading = false; });
       }
     } catch (e) {
-      setState(() { _isLoading = false; _errorMessage = 'Connection Error'; });
+      if (mounted) setState(() { _isLoading = false; });
     }
   }
 
@@ -106,7 +105,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             child: AnimatedBuilder(
               animation: _radarController,
               builder: (context, child) => CustomPaint(
-                painter: RadarSweepPainter(angle: _radarController.value * 2 * 3.1415, color: saffron.withOpacity(0.04)),
+                painter: RadarSweepPainter(angle: _radarController.value * 2 * 3.1415, color: saffron.withValues(alpha: 0.04)),
               ),
             ),
           ),
@@ -139,7 +138,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             onTap: () => Navigator.pop(context),
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+              decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]),
               child: const Icon(Icons.arrow_back_rounded, size: 20),
             ),
           ),
@@ -148,7 +147,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             onTap: _selectDateRange,
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: saffron, shape: BoxShape.circle, boxShadow: [BoxShadow(color: saffron.withOpacity(0.3), blurRadius: 10)]),
+              decoration: BoxDecoration(color: saffron, shape: BoxShape.circle, boxShadow: [BoxShadow(color: saffron.withValues(alpha: 0.3), blurRadius: 10)]),
               child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
             ),
           ),
@@ -209,10 +208,11 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       String ds = attend.date;
       if (ds.length >= 10) ds = ds.substring(0, 10);
       dt = DateTime.parse(ds); 
-    } catch(e) {}
+    } catch(e) { // ignore: empty_catches
+    }
 
     // Clean up location strings if they contain coordinates but we have no address
-    String _cleanLocation(String? loc) {
+    String cleanLocation(String? loc) {
       if (loc == null || loc == "" || loc == "null") return "Location Not Recorded";
       
       // If it's a raw coordinate string from old code, make it cleaner
@@ -232,8 +232,8 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       decoration: BoxDecoration(
         color: attend.isOutside ? const Color(0xFFFFF3E0) : Colors.white, // Deeper orange for outside (Amber 50 -> Orange 50)
         borderRadius: BorderRadius.circular(30),
-        border: attend.isOutside ? Border.all(color: Colors.orange.withOpacity(0.3), width: 1.5) : null,
-        boxShadow: [BoxShadow(color: color.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10))],
+        border: attend.isOutside ? Border.all(color: Colors.orange.withValues(alpha: 0.3), width: 1.5) : null,
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         children: [
@@ -245,7 +245,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                 Container(
                   width: 55,
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(15)),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -274,12 +274,12 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(attend.isOutside ? Icons.login_rounded : Icons.location_on_rounded, size: 10, color: color.withOpacity(0.6)),
+                          Icon(attend.isOutside ? Icons.login_rounded : Icons.location_on_rounded, size: 10, color: color.withValues(alpha: 0.6)),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              _cleanLocation(attend.checkInLoc ?? attend.locationName), 
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.5))
+                              cleanLocation(attend.checkInLoc ?? attend.locationName), 
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withValues(alpha: 0.5))
                             ),
                           ),
                         ],
@@ -291,12 +291,12 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.logout_rounded, size: 10, color: Colors.deepOrange.withOpacity(0.6)),
+                            Icon(Icons.logout_rounded, size: 10, color: Colors.deepOrange.withValues(alpha: 0.6)),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                _cleanLocation(attend.checkOutLoc), 
-                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.5))
+                                cleanLocation(attend.checkOutLoc), 
+                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.black.withValues(alpha: 0.5))
                               ),
                             ),
                           ],
@@ -325,9 +325,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.08),
+                color: Colors.orange.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange.withOpacity(0.1)),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.1)),
               ),
               child: Row(
                 children: [
@@ -347,14 +347,14 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             decoration: BoxDecoration(
-              color: attend.isOutside ? Colors.orange.withOpacity(0.08) : const Color(0xFFF8F9FA),
+              color: attend.isOutside ? Colors.orange.withValues(alpha: 0.08) : const Color(0xFFF8F9FA),
               borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
             child: Row(
               children: [
                 _buildTimeColumn("CHECK-IN", _formatTime(attend.checkIn), Icons.access_time_filled_rounded, attend.isOutside ? Colors.orange : Colors.blue),
                 const Spacer(),
-                Container(width: 1, height: 25, color: Colors.grey.withOpacity(0.1)),
+                Container(width: 1, height: 25, color: Colors.grey.withValues(alpha: 0.1)),
                 const Spacer(),
                 _buildTimeColumn("CHECK-OUT", _formatTime(attend.checkOut), Icons.alarm_on_rounded, attend.isOutside ? Colors.deepOrange : Colors.orange),
               ],
@@ -370,7 +370,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       children: [
         Container(
           padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
           child: Icon(icon, size: 12, color: color),
         ),
         const SizedBox(width: 10),
@@ -393,7 +393,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           onTap: () => setState(() => _visibleCount += 5),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)]),
+            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)]),
             child: const Text("MORE RECORDS", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
           ),
         ),
@@ -433,6 +433,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
 
   Future<void> _selectDateRange() async {
     final res = await showDateRangePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime.now());
+    if (!mounted) return;
     if (res != null) {
       setState(() { _startDate = res.start; _endDate = res.end; });
       _applyFilters();
@@ -453,7 +454,7 @@ class RadarSweepPainter extends CustomPainter {
   RadarSweepPainter({required this.angle, required this.color});
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..shader = SweepGradient(center: Alignment.center, startAngle: angle, endAngle: angle + 0.5, colors: [color.withOpacity(0), color]).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    final paint = Paint()..shader = SweepGradient(center: Alignment.center, startAngle: angle, endAngle: angle + 0.5, colors: [color.withValues(alpha: 0), color]).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawCircle(Offset(size.width / 2, size.height / 2), size.longestSide, paint);
   }
   @override

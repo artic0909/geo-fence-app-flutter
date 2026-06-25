@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://locate.graphicodeindia.com/api';
+  static const String baseUrl = 'https://suitable-upstroke-simmering.ngrok-free.dev/api';
   // static const String baseUrl = '127.0.0.1/api';
 
   static Future<String?> getToken() async {
@@ -32,15 +33,18 @@ class ApiService {
           'password': password,
           'device_name': deviceName,
         }),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
       );
 
-      print('Login Response Status: ${response.statusCode}');
-      print('Login Response Body: ${response.body}');
+      debugPrint('Login Response Status: ${response.statusCode}');
+      debugPrint('Login Response Body: ${response.body}');
 
       return response;
     } catch (e) {
-      print('Login Error: $e');
+      debugPrint('Login Error: $e');
       rethrow;
     }
   }
@@ -67,17 +71,17 @@ class ApiService {
       // Add image file
       request.files.add(await http.MultipartFile.fromPath('photo', image.path));
 
-      print('DEBUG - Sending check-in request...');
-      print('DEBUG - Latitude: $lat, Longitude: $lng');
+      debugPrint('DEBUG - Sending check-in request...');
+      debugPrint('DEBUG - Latitude: $lat, Longitude: $lng');
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
-      print('DEBUG - Check-in response status: ${response.statusCode}');
+      debugPrint('DEBUG - Check-in response status: ${response.statusCode}');
 
       return response;
     } catch (e) {
-      print('DEBUG - Check-in request error: $e');
+      debugPrint('DEBUG - Check-in request error: $e');
       rethrow;
     }
   }
@@ -166,15 +170,15 @@ class ApiService {
         headers: await getHeaders(),
       );
 
-      print('API Service - History Response Status: ${response.statusCode}');
+      debugPrint('API Service - History Response Status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
-        print('API Service - History Error Response: ${response.body}');
+        debugPrint('API Service - History Error Response: ${response.body}');
       }
 
       return response;
     } catch (e) {
-      print('API Service - History Request Error: $e');
+      debugPrint('API Service - History Request Error: $e');
       rethrow;
     }
   }
@@ -192,7 +196,7 @@ class ApiService {
       );
       return response;
     } catch (e) {
-      print('Location Update Error: $e');
+      debugPrint('Location Update Error: $e');
       rethrow;
     }
   }

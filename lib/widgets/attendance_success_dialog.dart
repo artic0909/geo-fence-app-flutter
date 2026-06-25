@@ -70,12 +70,12 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog> with 
             margin: const EdgeInsets.only(top: 40),
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: Colors.white, width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -104,7 +104,7 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog> with 
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.black.withValues(alpha: 0.6),
                         height: 1.5,
                       ),
                     ),
@@ -120,7 +120,7 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog> with 
                         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         elevation: 5,
-                        shadowColor: const Color(0xFF138808).withOpacity(0.4),
+                        shadowColor: const Color(0xFF138808).withValues(alpha: 0.4),
                       ),
                       child: const Text(
                         "EXCELLENT",
@@ -143,7 +143,7 @@ class _AttendanceSuccessDialogState extends State<AttendanceSuccessDialog> with 
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF138808).withOpacity(0.3),
+                      color: const Color(0xFF138808).withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),

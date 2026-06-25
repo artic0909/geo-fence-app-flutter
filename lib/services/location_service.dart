@@ -32,8 +32,9 @@ class LocationService {
     
     // Get current position with high accuracy
     return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.best,
-      forceAndroidLocationManager: true,
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+      ),
     );
   }
   

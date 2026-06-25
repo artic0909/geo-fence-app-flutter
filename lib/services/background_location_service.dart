@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
-import 'location_service.dart';
 
 class BackgroundLocationService {
   static Future<void> initializeService() async {
@@ -32,13 +32,13 @@ class BackgroundLocationService {
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
     } catch (e) {
-      print("Notification Channel Error: $e");
+      debugPrint("Notification Channel Error: $e");
     }
 
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
-        autoStart: true,
+        autoStart: false,
         isForegroundMode: true,
         notificationChannelId: 'location_tracking',
         initialNotificationTitle: 'Tracking Active',
@@ -46,13 +46,21 @@ class BackgroundLocationService {
         foregroundServiceNotificationId: 888,
       ),
       iosConfiguration: IosConfiguration(
-        autoStart: true,
+        autoStart: false,
         onForeground: onStart,
         onBackground: onIosBackground,
       ),
     );
 
-    service.startService();
+    // We will start the service manually when permissions are granted
+    // service.startService();
+  }
+
+  static Future<void> startServiceManually() async {
+    final service = FlutterBackgroundService();
+    if (!(await service.isRunning())) {
+      service.startService();
+    }
   }
 
   @pragma('vm:entry-point')
@@ -89,19 +97,21 @@ class BackgroundLocationService {
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('token');
         if (token == null) {
-          print("Background Service: No Auth Token, skipping update.");
+          debugPrint("Background Service: No Auth Token, skipping update.");
           return;
         }
 
         bool isLocationEnabled = await Geolocator.isLocationServiceEnabled();
         if (!isLocationEnabled) {
-          print("Location Services are DISABLED");
+          debugPrint("Location Services are DISABLED");
           // Here we could try to send a "Location OFF" status to a separate field 
           // but for now the admin will see Signal Lost after 2 min.
         } else {
           Position pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.medium,
-            timeLimit: const Duration(seconds: 15),
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium,
+              timeLimit: Duration(seconds: 15),
+            ),
           );
           await ApiService.updateLocation(pos.latitude, pos.longitude);
           
@@ -113,7 +123,7 @@ class BackgroundLocationService {
           }
         }
       } catch (e) {
-        print("Background Tracking Error: $e");
+        debugPrint("Background Tracking Error: $e");
       }
     });
 
@@ -121,9 +131,9 @@ class BackgroundLocationService {
     Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
       if (status == ServiceStatus.disabled) {
         // We could send an immediate "Location OFF" signal here
-        print("Location Services Turned OFF");
+        debugPrint("Location Services Turned OFF");
       } else {
-        print("Location Services Turned ON");
+        debugPrint("Location Services Turned ON");
       }
     });
   }

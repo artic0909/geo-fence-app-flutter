@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
-import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
@@ -13,12 +12,13 @@ import 'login_screen.dart';
 import 'outside_attendance_screen.dart';
 import 'history_screen.dart';
 import '../widgets/attendance_success_dialog.dart';
+import '../services/background_location_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
@@ -42,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _loadUserData();
     _initLocation();
     _startTracking();
+    BackgroundLocationService.startServiceManually();
 
     _pulseController = AnimationController(
       vsync: this,
@@ -64,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     
     // Initial load from local storage
     setState(() {
@@ -76,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Proactive Sync with Server
     try {
       final response = await ApiService.getEmployeeData();
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final status = data['attendance_status'];
@@ -115,19 +118,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      print('Sync error: $e');
+      debugPrint('Sync error: $e');
     }
   }
 
   Future<void> _initLocation() async {
     try {
       final position = await LocationService.getCurrentLocation();
+      if (!mounted) return;
       setState(() {
         _currentLocation = LatLng(position.latitude, position.longitude);
       });
       _mapController.move(_currentLocation!, 16);
     } catch (e) {
-      print('Location error: $e');
+      debugPrint('Location error: $e');
     }
   }
 
@@ -144,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       await ApiService.updateLocation(pos.latitude, pos.longitude);
       // Backend handles the radius check and storage
     } catch (e) {
-      print('Tracking Update Failed: $e');
+      debugPrint('Tracking Update Failed: $e');
     }
   }
 
@@ -182,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
     try {
       final pos = await LocationService.getCurrentLocation();
+      if (!mounted) return;
       setState(() {
         _currentLocation = LatLng(pos.latitude, pos.longitude);
         _status = 'GPS Locked. Take Selfie';
@@ -189,6 +194,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _mapController.move(_currentLocation!, 17);
 
       final photo = await CameraService.takePicture();
+      if (!mounted) return;
       if (photo == null) {
         setState(() => _status = 'Cancelled');
         return;
@@ -196,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
       setState(() => _status = 'Verifying Check-in...');
       final res = await ApiService.checkIn(pos.latitude, pos.longitude, photo);
+      if (!mounted) return;
 
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
@@ -233,6 +240,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
     try {
       final pos = await LocationService.getCurrentLocation();
+      if (!mounted) return;
       setState(() {
         _currentLocation = LatLng(pos.latitude, pos.longitude);
         _status = 'GPS Locked. Take Selfie';
@@ -240,6 +248,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _mapController.move(_currentLocation!, 17);
 
       final photo = await CameraService.takePicture();
+      if (!mounted) return;
       if (photo == null) {
         setState(() => _status = 'Cancelled');
         return;
@@ -247,6 +256,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
       setState(() => _status = 'Processing Check-out...');
       final res = await ApiService.checkOut(pos.latitude, pos.longitude, photo);
+      if (!mounted) return;
 
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
@@ -314,15 +324,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.only(top: 50, left: 24, right: 24, bottom: 20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        color: Colors.white.withValues(alpha: 0.8),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Row(
             children: [
-              CircleAvatar(backgroundColor: saffron.withOpacity(0.1), child: Icon(Icons.person_rounded, color: saffron)),
+              CircleAvatar(backgroundColor: saffron.withValues(alpha: 0.1), child: Icon(Icons.person_rounded, color: saffron)),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
@@ -330,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(_userName.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
-                    Text(_orgName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.4))),
+                    Text(_orgName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black.withValues(alpha: 0.4))),
                   ],
                 ),
               ),
@@ -347,7 +357,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Container(
       height: 320,
       width: double.infinity,
-      decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)]),
+      decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)]),
       child: Stack(
         children: [
           FlutterMap(
@@ -369,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             builder: (context, child) => Container(
                               width: 30 + (30 * _pulseController.value),
                               height: 30 + (30 * _pulseController.value),
-                              decoration: BoxDecoration(shape: BoxShape.circle, color: saffron.withOpacity(1 - _pulseController.value)),
+                              decoration: BoxDecoration(shape: BoxShape.circle, color: saffron.withValues(alpha: 1 - _pulseController.value)),
                             ),
                           ),
                           const Icon(Icons.location_on, color: Colors.red, size: 35),
@@ -386,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               onTap: _refreshMap,
               child: Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))], border: Border.all(color: Colors.white, width: 2)),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))], border: Border.all(color: Colors.white, width: 2)),
                 child: RotationTransition(turns: _refreshController, child: Icon(Icons.refresh_rounded, color: saffron, size: 20)),
               ),
             ),
@@ -399,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildStatusRow() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
-      color: Colors.white.withOpacity(0.7),
+      color: Colors.white.withValues(alpha: 0.7),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -418,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const OutsideAttendanceScreen())),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.orange.withOpacity(0.2))),
+                    decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.orange.withValues(alpha: 0.2))),
                     child: const Text("OUTSIDE ATTENDANCE", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.orange)),
                   ),
                 ),
@@ -426,9 +436,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _isCheckedIn ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                  color: _isCheckedIn ? Colors.red.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: (_isCheckedIn ? Colors.red : Colors.green).withOpacity(0.2)),
+                  border: Border.all(color: (_isCheckedIn ? Colors.red : Colors.green).withValues(alpha: 0.2)),
                 ),
                 child: Text(_isCheckedIn ? "ON DUTY" : "OFF DUTY", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: _isCheckedIn ? Colors.red : Colors.green)),
               ),
@@ -444,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       onTap: (_isChecking || isCompleted) ? null : _toggleAttendance,
       child: Container(
         width: 200, height: 200,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.2), border: Border.all(color: Colors.white.withOpacity(0.5), width: 2)),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.2), border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2)),
         child: Center(
           child: Stack(
             alignment: Alignment.center,
@@ -455,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   builder: (context, child) => Container(
                     width: 160 + (20 * _pulseController.value),
                     height: 160 + (20 * _pulseController.value),
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (_isCheckedIn ? Colors.red : green).withOpacity(1 - _pulseController.value), width: 2)),
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (_isCheckedIn ? Colors.red : green).withValues(alpha: 1 - _pulseController.value), width: 2)),
                   ),
                 ),
               Container(
@@ -468,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ? [Colors.grey.shade400, Colors.grey.shade600]
                         : (_isCheckedIn ? [const Color(0xFFFF5252), const Color(0xFFD32F2F)] : [const Color(0xFF66BB6A), const Color(0xFF388E3C)]),
                   ),
-                  boxShadow: [BoxShadow(color: (isCompleted ? Colors.grey : (_isCheckedIn ? Colors.red : green)).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
+                  boxShadow: [BoxShadow(color: (isCompleted ? Colors.grey : (_isCheckedIn ? Colors.red : green)).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
                 child: _isChecking
                     ? const Center(child: CircularProgressIndicator(color: Colors.white))
@@ -492,10 +502,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20)], border: Border.all(color: Colors.white)),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)], border: Border.all(color: Colors.white)),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: saffron.withOpacity(0.1), borderRadius: BorderRadius.circular(15)), child: Icon(Icons.verified_user_rounded, color: saffron)),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: saffron.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)), child: Icon(Icons.verified_user_rounded, color: saffron)),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
@@ -503,7 +513,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 const Text("GEOFENCE MODE ACTIVE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
                 const SizedBox(height: 5),
-                Text("Ensure you are within the geo-fence and your face is fully visible for the selfie check.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
+                Text("Ensure you are within the geo-fence and your face is fully visible for the selfie check.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.5))),
               ],
             ),
           ),

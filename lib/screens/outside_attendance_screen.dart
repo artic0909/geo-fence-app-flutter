@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../services/location_service.dart';
@@ -19,7 +18,7 @@ class OutsideAttendanceScreen extends StatefulWidget {
   const OutsideAttendanceScreen({super.key});
 
   @override
-  _OutsideAttendanceScreenState createState() => _OutsideAttendanceScreenState();
+  State<OutsideAttendanceScreen> createState() => _OutsideAttendanceScreenState();
 }
 
 class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with TickerProviderStateMixin {
@@ -76,12 +75,13 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       final pos = await LocationService.getCurrentLocation();
       await ApiService.updateLocation(pos.latitude, pos.longitude);
     } catch (e) {
-      print('Outside Tracking Update Failed: $e');
+      debugPrint('Outside Tracking Update Failed: $e');
     }
   }
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _userName = prefs.getString('user_name') ?? 'User Name';
       _orgName = prefs.getString('org_name') ?? 'Official Organization';
@@ -93,6 +93,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
     try {
       final response = await ApiService.getEmployeeData();
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final status = data['attendance_status'];
@@ -107,19 +108,20 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         await prefs.setBool('is_outside_checked_in', _isOutsideCheckedIn);
       }
     } catch (e) {
-      print('Sync error in Outside screen: $e');
+      debugPrint('Sync error in Outside screen: $e');
     }
   }
 
   Future<void> _initLocation() async {
     try {
       final position = await LocationService.getCurrentLocation();
+      if (!mounted) return;
       setState(() {
         _currentLocation = LatLng(position.latitude, position.longitude);
       });
       _mapController.move(_currentLocation!, 16);
     } catch (e) {
-      print('Location error: $e');
+      debugPrint('Location error: $e');
     }
   }
 
@@ -157,7 +159,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         List<String> parts = [street, subLocality, locality].where((s) => s.isNotEmpty).toList();
         if (parts.isNotEmpty) return parts.join(", ");
       }
-    } catch (e) {}
+    } catch (e) { // ignore: empty_catches
+    }
 
     try {
       final url = Uri.parse("https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1");
@@ -171,7 +174,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           return displayName;
         }
       }
-    } catch (e) {}
+    } catch (e) { // ignore: empty_catches
+    }
 
     return "Location at ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}";
   }
@@ -188,6 +192,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     });
     try {
       final pos = await LocationService.getCurrentLocation();
+      if (!mounted) return;
       setState(() {
         _currentLocation = LatLng(pos.latitude, pos.longitude);
         _status = 'GPS Locked. Take Selfie';
@@ -195,6 +200,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       _mapController.move(_currentLocation!, 17);
 
       final photo = await CameraService.takePicture();
+      if (!mounted) return;
       if (photo == null) {
         setState(() => _status = 'Cancelled');
         return;
@@ -202,11 +208,13 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
       setState(() => _status = 'Detecting Address...');
       final String locationDesc = await _getAddress(pos.latitude, pos.longitude);
+      if (!mounted) return;
       
       setState(() => _status = 'Verifying Outside Check-in...');
       final res = await ApiService.outsideCheckIn(
         pos.latitude, pos.longitude, photo, locationDesc, _reasonController.text.trim()
       );
+      if (!mounted) return;
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final prefs = await SharedPreferences.getInstance();
@@ -241,6 +249,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     });
     try {
       final pos = await LocationService.getCurrentLocation();
+      if (!mounted) return;
       setState(() {
         _currentLocation = LatLng(pos.latitude, pos.longitude);
         _status = 'GPS Locked. Take Selfie';
@@ -248,6 +257,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       _mapController.move(_currentLocation!, 17);
 
       final photo = await CameraService.takePicture();
+      if (!mounted) return;
       if (photo == null) {
         setState(() => _status = 'Cancelled');
         return;
@@ -255,11 +265,13 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
       setState(() => _status = 'Detecting Address...');
       final String locationDesc = await _getAddress(pos.latitude, pos.longitude);
+      if (!mounted) return;
 
       setState(() => _status = 'Processing Outside Check-out...');
       final res = await ApiService.outsideCheckOut(
         pos.latitude, pos.longitude, photo, locationDesc, null // No reason needed during checkout
       );
+      if (!mounted) return;
 
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
@@ -333,18 +345,21 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   Widget _buildTopBar(Color saffron) {
     return Container(
       padding: const EdgeInsets.only(top: 50, left: 24, right: 24, bottom: 20),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]),
       child: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Row(
             children: [
               IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20), onPressed: () {
-                if (Navigator.canPop(context)) Navigator.pop(context);
-                else Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                }
               }),
               const SizedBox(width: 5),
-              CircleAvatar(backgroundColor: saffron.withOpacity(0.1), child: Icon(Icons.person_rounded, color: saffron)),
+              CircleAvatar(backgroundColor: saffron.withValues(alpha: 0.1), child: Icon(Icons.person_rounded, color: saffron)),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
@@ -352,7 +367,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(_userName.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
-                    Text(_orgName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black.withOpacity(0.4))),
+                    Text(_orgName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black.withValues(alpha: 0.4))),
                   ],
                 ),
               ),
@@ -368,7 +383,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     return Container(
       height: 280,
       width: double.infinity,
-      decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)]),
+      decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)]),
       child: Stack(
         children: [
           FlutterMap(
@@ -390,7 +405,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                             builder: (context, child) => Container(
                               width: 30 + (30 * _pulseController.value),
                               height: 30 + (30 * _pulseController.value),
-                              decoration: BoxDecoration(shape: BoxShape.circle, color: saffron.withOpacity(1 - _pulseController.value)),
+                              decoration: BoxDecoration(shape: BoxShape.circle, color: saffron.withValues(alpha: 1 - _pulseController.value)),
                             ),
                           ),
                           const Icon(Icons.location_on, color: Colors.orange, size: 35),
@@ -407,7 +422,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               onTap: _refreshMap,
               child: Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))], border: Border.all(color: Colors.white, width: 2)),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))], border: Border.all(color: Colors.white, width: 2)),
                 child: RotationTransition(turns: _refreshController, child: Icon(Icons.refresh_rounded, color: saffron, size: 20)),
               ),
             ),
@@ -420,7 +435,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   Widget _buildStatusRow() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-      color: Colors.white.withOpacity(0.7),
+      color: Colors.white.withValues(alpha: 0.7),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -440,19 +455,22 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               if (!_isOutsideCheckedIn)
                 GestureDetector(
                   onTap: () {
-                    if (Navigator.canPop(context)) Navigator.pop(context);
-                    else Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.green.withOpacity(0.2))),
+                    decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.green.withValues(alpha: 0.2))),
                     child: const Text("ONSITE DUTY", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.green)),
                   ),
                 ),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: _isOutsideCheckedIn ? Colors.orange.withOpacity(0.1) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: (_isOutsideCheckedIn ? Colors.orange : Colors.grey).withOpacity(0.2))),
+                decoration: BoxDecoration(color: _isOutsideCheckedIn ? Colors.orange.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: (_isOutsideCheckedIn ? Colors.orange : Colors.grey).withValues(alpha: 0.2))),
                 child: Text(_isOutsideCheckedIn ? "DUTY ON" : "DUTY OFF", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: _isOutsideCheckedIn ? Colors.orange : Colors.grey)),
               ),
             ],
@@ -467,9 +485,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15)],
       ),
       child: TextField(
         controller: _reasonController,
@@ -491,7 +509,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       onTap: _isChecking ? null : _toggleOutsideAttendance,
       child: Container(
         width: 180, height: 180,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.2), border: Border.all(color: Colors.white.withOpacity(0.5), width: 2)),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.2), border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2)),
         child: Center(
           child: Stack(
             alignment: Alignment.center,
@@ -501,7 +519,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                 builder: (context, child) => Container(
                   width: 140 + (20 * _pulseController.value),
                   height: 140 + (20 * _pulseController.value),
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withOpacity(1 - _pulseController.value), width: 2)),
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withValues(alpha: 1 - _pulseController.value), width: 2)),
                 ),
               ),
               Container(
@@ -509,7 +527,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: _isOutsideCheckedIn ? [const Color(0xFFFF5722), const Color(0xFFE64A19)] : [const Color(0xFFFFB74D), const Color(0xFFF57C00)]),
-                  boxShadow: [BoxShadow(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
+                  boxShadow: [BoxShadow(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
                 child: _isChecking 
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
@@ -533,10 +551,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20)], border: Border.all(color: Colors.white)),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)], border: Border.all(color: Colors.white)),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: saffron.withOpacity(0.1), borderRadius: BorderRadius.circular(15)), child: Icon(Icons.info_outline_rounded, color: saffron)),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: saffron.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)), child: Icon(Icons.info_outline_rounded, color: saffron)),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
@@ -544,7 +562,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               children: [
                 const Text("OUTSIDE MODE ACTIVE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
                 const SizedBox(height: 5),
-                Text("Reason is mandatory for startup. Please describe your duty context clearly.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withOpacity(0.5))),
+                Text("Reason is mandatory for startup. Please describe your duty context clearly.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.5))),
               ],
             ),
           ),

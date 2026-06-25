@@ -179,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
                     height: 200,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                     ),
                   ),
                 ),
@@ -191,7 +191,7 @@ class _SplashScreenState extends State<SplashScreen>
                     height: 250,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                     ),
                   ),
                 ),
@@ -210,15 +210,15 @@ class _SplashScreenState extends State<SplashScreen>
                             child: Container(
                               padding: const EdgeInsets.all(40),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(50),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: Colors.white.withValues(alpha: 0.5),
                                   width: 1.5,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
+                                    color: Colors.black.withValues(alpha: 0.1),
                                     blurRadius: 30,
                                     spreadRadius: -10,
                                   ),
@@ -299,7 +299,7 @@ class _SplashScreenState extends State<SplashScreen>
                           Text(
                             'PRECISE • SECURE • RELIABLE',
                             style: TextStyle(
-                              color: Colors.black.withOpacity(0.5),
+                              color: Colors.black.withValues(alpha: 0.5),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 2,
@@ -378,7 +378,7 @@ class _LoadingDotsState extends State<LoadingDots> with TickerProviderStateMixin
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: color.withOpacity(0.3),
+                          color: color.withValues(alpha: 0.3),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),
@@ -435,7 +435,7 @@ class _RadarAnimationState extends State<RadarAnimation> with TickerProviderStat
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity((1 - value) * 0.4),
+                  color: Colors.white.withValues(alpha: (1 - value) * 0.4),
                   width: 1.5,
                 ),
               ),
