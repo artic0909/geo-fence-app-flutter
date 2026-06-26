@@ -12,6 +12,7 @@ import 'login_screen.dart';
 import 'outside_attendance_screen.dart';
 import 'history_screen.dart';
 import '../widgets/attendance_success_dialog.dart';
+import '../widgets/custom_alert_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/background_location_service.dart';
 
@@ -319,7 +320,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _showError(String m) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red));
+    if (mounted) {
+      CustomAlertDialog.show(context, title: 'Attention', message: m, type: AlertType.error);
+    }
   }
 
   @override

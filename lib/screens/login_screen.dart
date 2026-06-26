@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
+import '../widgets/custom_alert_dialog.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -83,26 +84,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.redAccent,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          );
+          CustomAlertDialog.show(context, title: 'Login Failed', message: errorMessage, type: AlertType.error);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Network error: $e'),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+        CustomAlertDialog.show(context, title: 'Network Error', message: 'Connection failed: $e', type: AlertType.error);
       }
     } finally {
       if (mounted) {
@@ -219,9 +206,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     final Uri url = Uri.parse('https://locate.graphicodeindia.com/admin/register');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not launch registration link')),
-        );
+        CustomAlertDialog.show(context, title: 'Link Failed', message: 'Could not launch registration link', type: AlertType.warning);
       }
     }
   }

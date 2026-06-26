@@ -13,6 +13,7 @@ import 'dart:ui';
 import 'history_screen.dart';
 import 'home_screen.dart';
 import '../widgets/attendance_success_dialog.dart';
+import '../widgets/custom_alert_dialog.dart';
 
 class OutsideAttendanceScreen extends StatefulWidget {
   const OutsideAttendanceScreen({super.key});
@@ -300,7 +301,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   }
 
   void _showError(String m) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red));
+    if (mounted) {
+      CustomAlertDialog.show(context, title: 'Attention', message: m, type: AlertType.error);
+    }
   }
 
   @override
@@ -318,23 +321,23 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           Column(
             children: [
               _buildTopBar(saffron),
-              _buildSatelliteMap(saffron),
-              _buildStatusRow(),
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
+                      _buildSatelliteMap(saffron),
+                      _buildStatusRow(),
                       const SizedBox(height: 30),
                       if (!_isOutsideCheckedIn) _buildReasonInput(saffron),
                       const SizedBox(height: 10),
                       _buildAttendanceButton(Colors.orange),
                       const SizedBox(height: 30),
+                      _buildGuideSection(saffron),
+                      const SizedBox(height: 25),
                     ],
                   ),
                 ),
               ),
-              _buildGuideSection(saffron),
-              const SizedBox(height: 25),
             ],
           ),
         ],
