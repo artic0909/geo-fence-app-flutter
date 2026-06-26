@@ -345,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _buildSatelliteMap(saffron),
               _buildStatusRow(),
               Expanded(child: Center(child: _buildAttendanceButton(green, isCompleted))),
-              _buildGuideSection(saffron),
+              _buildGuideSection(saffron, isCompleted),
               const SizedBox(height: 25),
             ],
           ),
@@ -557,9 +557,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildGuideSection(Color saffron) {
+  Widget _buildGuideSection(Color saffron, bool isCompleted) {
     return GestureDetector(
-      onTap: _showGeofencePicker,
+      onTap: (_isCheckedIn || isCompleted) ? null : _showGeofencePicker,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 24),
         padding: const EdgeInsets.all(20),
@@ -574,11 +574,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   Text(_selectedGeofence != null ? _selectedGeofence!['name'].toString().toUpperCase() : "NO GEOFENCE ASSIGNED", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
                   const SizedBox(height: 5),
-                  Text("Tap to select a different site and view its map area.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.5))),
+                  Text(
+                    _isCheckedIn 
+                        ? "You are currently checked in at this site."
+                        : (isCompleted ? "Attendance completed for today." : "Tap to select a different site and view its map area."), 
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.5))
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey),
+            if (!_isCheckedIn && !isCompleted) const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey),
           ],
         ),
       ),
