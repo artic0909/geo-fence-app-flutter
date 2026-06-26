@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://suitable-upstroke-simmering.ngrok-free.dev/api';
+  static const String baseUrl = 'http://geofence.sumatrasales.com/api';
   // static const String baseUrl = '127.0.0.1/api';
 
   static Future<String?> getToken() async {

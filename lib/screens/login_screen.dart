@@ -388,9 +388,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                       const SizedBox(height: 25),
                                       _buildTextField(
                                         controller: _emailController,
-                                        label: 'Email Address',
-                                        icon: Icons.alternate_email,
-                                        validator: (v) => (v == null || !v.contains('@')) ? 'Invalid email' : null,
+                                        label: 'Email or Employee ID',
+                                        icon: Icons.person_outline,
+                                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                                       ),
                                       const SizedBox(height: 20),
                                       _buildTextField(
