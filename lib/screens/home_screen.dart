@@ -12,6 +12,7 @@ import 'login_screen.dart';
 import 'outside_attendance_screen.dart';
 import 'history_screen.dart';
 import '../widgets/attendance_success_dialog.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/background_location_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -174,30 +175,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _toggleAttendance() async {
+    if (_selectedGeofence == null) {
+      _showError('No working site selected.');
+      return;
+    }
+
+    setState(() {
+      _isChecking = true;
+      _status = 'Verifying Location...';
+    });
+
+    Position? pos;
+    try {
+      pos = await LocationService.getCurrentLocation();
+      final gfLat = double.parse(_selectedGeofence!['latitude'].toString());
+      final gfLng = double.parse(_selectedGeofence!['longitude'].toString());
+      final radius = double.parse(_selectedGeofence!['radius'].toString());
+      
+      final distance = const Distance().distance(LatLng(pos.latitude, pos.longitude), LatLng(gfLat, gfLng));
+      
+      if (distance > radius) {
+        setState(() => _isChecking = false);
+        _showError('You are outside the selected working site (${distance.toInt()}m away).');
+        return;
+      }
+    } catch (e) {
+      setState(() => _isChecking = false);
+      _showError('Could not verify location.');
+      return;
+    }
+
     if (_isCheckedIn) {
-      await _checkOut();
+      await _checkOut(pos);
     } else {
       final today = DateTime.now().toIso8601String().split('T')[0];
       if (_lastActionDate == today) {
         _showError('You have already completed attendance for today.');
+        setState(() => _isChecking = false);
         return;
       }
-      await _checkIn();
+      await _checkIn(pos);
     }
   }
 
-  Future<void> _checkIn() async {
+  Future<void> _checkIn(Position pos) async {
     setState(() {
       _isChecking = true;
-      _status = 'Locking GPS...';
+      _status = 'GPS Locked. Take Selfie';
+      _currentLocation = LatLng(pos.latitude, pos.longitude);
     });
+    
     try {
-      final pos = await LocationService.getCurrentLocation();
-      if (!mounted) return;
-      setState(() {
-        _currentLocation = LatLng(pos.latitude, pos.longitude);
-        _status = 'GPS Locked. Take Selfie';
-      });
       _mapController.move(_currentLocation!, 17);
 
       final photo = await CameraService.takePicture();
@@ -240,18 +268,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _checkOut() async {
+  Future<void> _checkOut(Position pos) async {
     setState(() {
       _isChecking = true;
-      _status = 'Locking GPS...';
+      _status = 'GPS Locked. Take Selfie';
+      _currentLocation = LatLng(pos.latitude, pos.longitude);
     });
+    
     try {
-      final pos = await LocationService.getCurrentLocation();
-      if (!mounted) return;
-      setState(() {
-        _currentLocation = LatLng(pos.latitude, pos.longitude);
-        _status = 'GPS Locked. Take Selfie';
-      });
       _mapController.move(_currentLocation!, 17);
 
       final photo = await CameraService.takePicture();
