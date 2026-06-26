@@ -10,9 +10,11 @@ class PermissionDialog extends StatefulWidget {
   static Future<void> checkAndShow(BuildContext context, VoidCallback onAllGranted) async {
     bool locService = await Geolocator.isLocationServiceEnabled();
     bool locPerm = await Permission.location.isGranted;
+    bool locAlways = await Permission.locationAlways.isGranted;
+    bool battery = await Permission.ignoreBatteryOptimizations.isGranted;
     bool camPerm = await Permission.camera.isGranted;
 
-    if (locService && locPerm && camPerm) {
+    if (locService && locPerm && locAlways && battery && camPerm) {
       onAllGranted();
     } else {
       if (!context.mounted) return;
@@ -31,6 +33,8 @@ class PermissionDialog extends StatefulWidget {
 class _PermissionDialogState extends State<PermissionDialog> with WidgetsBindingObserver {
   bool _locService = false;
   bool _locPerm = false;
+  bool _locAlways = false;
+  bool _battery = false;
   bool _camPerm = false;
 
   @override
@@ -56,16 +60,20 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
   Future<void> _checkPermissions() async {
     bool locService = await Geolocator.isLocationServiceEnabled();
     bool locPerm = await Permission.location.isGranted;
+    bool locAlways = await Permission.locationAlways.isGranted;
+    bool battery = await Permission.ignoreBatteryOptimizations.isGranted;
     bool camPerm = await Permission.camera.isGranted;
 
     if (mounted) {
       setState(() {
         _locService = locService;
         _locPerm = locPerm;
+        _locAlways = locAlways;
+        _battery = battery;
         _camPerm = camPerm;
       });
 
-      if (_locService && _locPerm && _camPerm) {
+      if (_locService && _locPerm && _locAlways && _battery && _camPerm) {
         Navigator.pop(context);
         widget.onAllGranted();
       }
@@ -78,6 +86,16 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
 
   Future<void> _requestLocationPermission() async {
     await Permission.location.request();
+    _checkPermissions();
+  }
+
+  Future<void> _requestLocationAlwaysPermission() async {
+    await Permission.locationAlways.request();
+    _checkPermissions();
+  }
+
+  Future<void> _requestBatteryPermission() async {
+    await Permission.ignoreBatteryOptimizations.request();
     _checkPermissions();
   }
 
@@ -166,6 +184,8 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
             const SizedBox(height: 24),
             _buildPermItem("GPS Service", "Turn on device location", _locService, Icons.gps_fixed, _requestLocationService),
             _buildPermItem("Location Access", "Allow app to see location", _locPerm, Icons.location_on_rounded, _requestLocationPermission),
+            _buildPermItem("Background Location", "Select 'Allow all the time'", _locAlways, Icons.my_location_rounded, _requestLocationAlwaysPermission),
+            _buildPermItem("Battery Optimize", "Allow background running", _battery, Icons.battery_charging_full_rounded, _requestBatteryPermission),
             _buildPermItem("Camera Access", "Allow app to take selfie", _camPerm, Icons.camera_alt_rounded, _requestCameraPermission),
           ],
         ),
