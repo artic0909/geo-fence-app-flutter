@@ -436,7 +436,8 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   String _formatTime(String? time) {
     if (time == null || time == "N/A" || time == "") return "--:--";
     try {
-      final t = DateTime.parse(time).toLocal();
+      String cleanTime = time.endsWith('Z') ? time.substring(0, time.length - 1) : time;
+      final t = DateTime.parse(cleanTime);
       final h = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
       return "${h.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')} ${t.hour >= 12 ? 'PM':'AM'}";
     } catch (e) { return "--:--"; }
