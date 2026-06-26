@@ -31,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   LatLng? _currentLocation;
   final MapController _mapController = MapController();
   List<dynamic> _assignedGeofences = [];
+  Map<String, dynamic>? _selectedGeofence;
 
   late AnimationController _pulseController;
   late AnimationController _refreshController;
@@ -89,6 +90,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _userName = data['employee_name'] ?? _userName;
           _orgName = data['admin_name'] ?? _orgName;
           _assignedGeofences = data['assigned_geofences'] ?? [];
+          if (_selectedGeofence == null && _assignedGeofences.isNotEmpty) {
+            _selectedGeofence = _assignedGeofences[0];
+          }
           _isCheckedIn = status['is_checked_in'] ?? false;
           
           // STRICT SYNC: Follow the server's truth for completion
@@ -368,9 +372,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             options: MapOptions(initialCenter: _currentLocation ?? const LatLng(22.5726, 88.3639), initialZoom: 16),
             children: [
               TileLayer(urlTemplate: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', userAgentPackageName: 'com.palgeo.app'),
-              if (_assignedGeofences.isNotEmpty)
+              if (_selectedGeofence != null)
                 CircleLayer(
-                  circles: _assignedGeofences.expand<CircleMarker>((gf) {
+                  circles: [_selectedGeofence!].expand<CircleMarker>((gf) {
                     List<CircleMarker> markers = [];
                     if (gf['tracking_radius'] != null) {
                       markers.add(CircleMarker(
@@ -527,26 +531,77 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildGuideSection(Color saffron) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)], border: Border.all(color: Colors.white)),
-      child: Row(
-        children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: saffron.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)), child: Icon(Icons.verified_user_rounded, color: saffron)),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("GEOFENCE MODE ACTIVE", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
-                const SizedBox(height: 5),
-                Text("Ensure you are within the geo-fence and your face is fully visible for the selfie check.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.5))),
-              ],
+    return GestureDetector(
+      onTap: _showGeofencePicker,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)], border: Border.all(color: Colors.white)),
+        child: Row(
+          children: [
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: saffron.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)), child: Icon(Icons.location_city_rounded, color: saffron)),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_selectedGeofence != null ? _selectedGeofence!['name'].toString().toUpperCase() : "NO GEOFENCE ASSIGNED", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+                  const SizedBox(height: 5),
+                  Text("Tap to select a different site and view its map area.", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.5))),
+                ],
+              ),
             ),
-          ),
-        ],
+            const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey),
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showGeofencePicker() {
+    if (_assignedGeofences.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text("Select Working Site", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _assignedGeofences.length,
+                  itemBuilder: (context, index) {
+                    final gf = _assignedGeofences[index];
+                    final isSelected = _selectedGeofence != null && gf['name'] == _selectedGeofence!['name'];
+                    return ListTile(
+                      leading: Icon(Icons.location_on, color: isSelected ? Colors.green : Colors.grey),
+                      title: Text(gf['name'], style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                      subtitle: Text("Radius: ${gf['radius']}m"),
+                      trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedGeofence = gf;
+                        });
+                        final lat = double.parse(gf['latitude'].toString());
+                        final lng = double.parse(gf['longitude'].toString());
+                        _mapController.move(LatLng(lat, lng), 16);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      }
     );
   }
 
