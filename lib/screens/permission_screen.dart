@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'home_screen.dart';
+import 'login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui';
 
 class PermissionScreen extends StatefulWidget {
@@ -64,11 +66,21 @@ class _PermissionScreenState extends State<PermissionScreen> {
     bool hasCamera = await Permission.camera.isGranted;
     
     if (hasLocation && hasCamera) {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        if (token != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
       }
     }
   }

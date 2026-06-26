@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String _lastActionDate = ''; 
   LatLng? _currentLocation;
   final MapController _mapController = MapController();
+  List<dynamic> _assignedGeofences = [];
 
   late AnimationController _pulseController;
   late AnimationController _refreshController;
@@ -86,6 +87,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
         setState(() {
           _userName = data['employee_name'] ?? _userName;
+          _orgName = data['admin_name'] ?? _orgName;
+          _assignedGeofences = data['assigned_geofences'] ?? [];
           _isCheckedIn = status['is_checked_in'] ?? false;
           
           // STRICT SYNC: Follow the server's truth for completion
@@ -365,6 +368,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             options: MapOptions(initialCenter: _currentLocation ?? const LatLng(22.5726, 88.3639), initialZoom: 16),
             children: [
               TileLayer(urlTemplate: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', userAgentPackageName: 'com.palgeo.app'),
+              if (_assignedGeofences.isNotEmpty)
+                CircleLayer(
+                  circles: _assignedGeofences.expand<CircleMarker>((gf) {
+                    List<CircleMarker> markers = [];
+                    if (gf['tracking_radius'] != null) {
+                      markers.add(CircleMarker(
+                        point: LatLng(double.parse(gf['latitude'].toString()), double.parse(gf['longitude'].toString())),
+                        color: Colors.orange.withValues(alpha: 0.05),
+                        borderColor: Colors.orange,
+                        borderStrokeWidth: 2,
+                        useRadiusInMeter: true,
+                        radius: double.parse(gf['tracking_radius'].toString()),
+                      ));
+                    }
+                    markers.add(CircleMarker(
+                      point: LatLng(double.parse(gf['latitude'].toString()), double.parse(gf['longitude'].toString())),
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      borderColor: Colors.blue,
+                      borderStrokeWidth: 2,
+                      useRadiusInMeter: true,
+                      radius: double.parse(gf['radius'].toString()),
+                    ));
+                    return markers;
+                  }).toList(),
+                ),
               if (_currentLocation != null)
                 MarkerLayer(
                   markers: [
