@@ -354,7 +354,18 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
               children: [
                 _buildTimeColumn("CHECK-IN", _formatTime(attend.checkIn), Icons.access_time_filled_rounded, attend.isOutside ? Colors.orange : Colors.blue),
                 const Spacer(),
-                Container(width: 1, height: 25, color: Colors.grey.withValues(alpha: 0.1)),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("TOTAL TIME", style: TextStyle(fontSize: 7, fontWeight: FontWeight.w900, color: Colors.grey.shade500, letterSpacing: 0.5)),
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(4)),
+                      child: Text(_calculateTotalTime(attend.checkIn, attend.checkOut), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+                    ),
+                  ],
+                ),
                 const Spacer(),
                 _buildTimeColumn("CHECK-OUT", _formatTime(attend.checkOut), Icons.alarm_on_rounded, attend.isOutside ? Colors.deepOrange : Colors.orange),
               ],
@@ -429,6 +440,21 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       final h = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
       return "${h.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')} ${t.hour >= 12 ? 'PM':'AM'}";
     } catch (e) { return "--:--"; }
+  }
+
+  String _calculateTotalTime(String? checkInStr, String? checkOutStr) {
+    if (checkInStr == null || checkOutStr == null || checkInStr == "" || checkOutStr == "") return "--h --m";
+    try {
+      final cin = DateTime.parse(checkInStr);
+      final cout = DateTime.parse(checkOutStr);
+      final diff = cout.difference(cin);
+      if (diff.isNegative) return "--h --m";
+      final hours = diff.inHours;
+      final minutes = diff.inMinutes % 60;
+      return "${hours}h ${minutes}m";
+    } catch (e) {
+      return "--h --m";
+    }
   }
 
   Future<void> _selectDateRange() async {
