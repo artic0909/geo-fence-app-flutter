@@ -14,6 +14,7 @@ import 'history_screen.dart';
 import 'home_screen.dart';
 import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
+import '../widgets/permission_dialog.dart';
 
 class OutsideAttendanceScreen extends StatefulWidget {
   const OutsideAttendanceScreen({super.key});
@@ -141,6 +142,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   }
 
   Future<void> _toggleOutsideAttendance() async {
+    await PermissionDialog.checkAndShow(context, _continueToggleOutsideAttendance);
+  }
+
+  Future<void> _continueToggleOutsideAttendance() async {
     if (_isOutsideCheckedIn) {
       await _outsideCheckOut();
     } else {

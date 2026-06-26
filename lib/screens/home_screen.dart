@@ -15,6 +15,7 @@ import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/background_location_service.dart';
+import '../widgets/permission_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -176,6 +177,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _toggleAttendance() async {
+    await PermissionDialog.checkAndShow(context, _continueToggleAttendance);
+  }
+
+  Future<void> _continueToggleAttendance() async {
     if (_selectedGeofence == null) {
       _showError('No working site selected.');
       return;
