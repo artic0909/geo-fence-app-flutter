@@ -322,20 +322,33 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
             children: [
               _buildTopBar(saffron),
               Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _buildSatelliteMap(saffron),
-                      _buildStatusRow(),
-                      const SizedBox(height: 30),
-                      if (!_isOutsideCheckedIn) _buildReasonInput(saffron),
-                      const SizedBox(height: 10),
-                      _buildAttendanceButton(Colors.orange),
-                      const SizedBox(height: 30),
-                      _buildGuideSection(saffron),
-                      const SizedBox(height: 25),
-                    ],
-                  ),
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Column(
+                        children: [
+                          _buildSatelliteMap(saffron),
+                          _buildStatusRow(),
+                          const SizedBox(height: 30),
+                          if (!_isOutsideCheckedIn) _buildReasonInput(saffron),
+                          const SizedBox(height: 10),
+                          _buildAttendanceButton(Colors.orange),
+                          const SizedBox(height: 30),
+                        ],
+                      ),
+                    ),
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          _buildGuideSection(saffron),
+                          const SizedBox(height: 25),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

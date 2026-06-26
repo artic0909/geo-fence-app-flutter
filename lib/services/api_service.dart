@@ -67,6 +67,7 @@ class ApiService {
       // Add fields
       request.fields['latitude'] = lat.toString();
       request.fields['longitude'] = lng.toString();
+      request.fields['timestamp'] = DateTime.now().toIso8601String();
 
       // Add image file
       request.files.add(await http.MultipartFile.fromPath('photo', image.path));
@@ -99,6 +100,7 @@ class ApiService {
 
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
+    request.fields['timestamp'] = DateTime.now().toIso8601String();
 
     request.files.add(await http.MultipartFile.fromPath('photo', image.path));
 
@@ -120,6 +122,7 @@ class ApiService {
 
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
+    request.fields['timestamp'] = DateTime.now().toIso8601String();
     if (location != null) request.fields['checkin_location'] = location;
     if (reason != null) request.fields['reason'] = reason;
 
@@ -143,6 +146,7 @@ class ApiService {
 
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
+    request.fields['timestamp'] = DateTime.now().toIso8601String();
     if (location != null) request.fields['checkout_location'] = location;
     if (reason != null) request.fields['reason'] = reason;
 
