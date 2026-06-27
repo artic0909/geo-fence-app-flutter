@@ -160,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
         setState(() {
           _userName = data['employee_name'] ?? _userName;
-          _orgName = data['admin_name'] ?? _orgName;
+          _orgName = data['business_name'] ?? data['admin_name'] ?? _orgName;
           _assignedGeofences = data['assigned_geofences'] ?? [];
           if (_selectedGeofence == null && _assignedGeofences.isNotEmpty) {
             _selectedGeofence = _assignedGeofences[0];
