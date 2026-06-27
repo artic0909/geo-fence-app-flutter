@@ -257,6 +257,36 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       final String locationDesc = await _getAddress(pos.latitude, pos.longitude);
       if (!mounted) return;
       
+      final prefs = await SharedPreferences.getInstance();
+      final isRestricted = prefs.getBool('phone_restriction') ?? false;
+
+      // 1. Enforce Kiosk Mode BEFORE API Call
+      if (isRestricted && mounted) {
+        setState(() => _status = 'Applying Security...');
+        bool kioskEnabled = false;
+
+        await KioskCountdownDialog.show(context, onComplete: () async {
+          _kioskRequestedTime = DateTime.now();
+          await startKioskMode();
+        });
+
+        // Wait for up to 15 seconds for user to accept the system prompt
+        for (int i = 0; i < 15; i++) {
+          await Future.delayed(const Duration(seconds: 1));
+          final mode = await getKioskMode();
+          if (mode == KioskMode.enabled) {
+            kioskEnabled = true;
+            _kioskRequestedTime = null; // Successfully enabled
+            break;
+          }
+        }
+
+        if (!kioskEnabled) {
+          _showError('You must allow app pinning to check in outside.');
+          return;
+        }
+      }
+
       setState(() => _status = 'Verifying Outside Check-in...');
       final res = await ApiService.outsideCheckIn(
         pos.latitude, pos.longitude, photo, locationDesc, _reasonController.text.trim()
@@ -264,17 +294,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       if (!mounted) return;
 
       if (res.statusCode == 200 || res.statusCode == 201) {
-        final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_outside_checked_in', true);
-        
-        // Handle Kiosk Mode (Phone Restriction)
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted) {
-          await KioskCountdownDialog.show(context, onComplete: () async {
-            _kioskRequestedTime = DateTime.now();
-            await startKioskMode();
-          });
-        }
         
         setState(() {
           _isOutsideCheckedIn = true;
@@ -290,7 +310,11 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           );
         }
       } else {
-        _showError('Outside Check-in Rejected');
+        if (isRestricted) {
+          await stopKioskMode(); // Unpin if check-in fails
+        }
+        final error = json.decode(res.body)['error'] ?? 'Outside Check-in Rejected';
+        _showError(error);
       }
     } catch (e) {
       _showError('Connection error');

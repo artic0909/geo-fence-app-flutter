@@ -300,24 +300,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         return;
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      final isRestricted = prefs.getBool('phone_restriction') ?? false;
+
+      // 1. Enforce Kiosk Mode BEFORE API Call
+      if (isRestricted && mounted) {
+        setState(() => _status = 'Applying Security...');
+        bool kioskEnabled = false;
+
+        await KioskCountdownDialog.show(context, onComplete: () async {
+          _kioskRequestedTime = DateTime.now();
+          await startKioskMode();
+        });
+
+        // Wait for up to 15 seconds for user to accept the system prompt
+        for (int i = 0; i < 15; i++) {
+          await Future.delayed(const Duration(seconds: 1));
+          final mode = await getKioskMode();
+          if (mode == KioskMode.enabled) {
+            kioskEnabled = true;
+            _kioskRequestedTime = null; // Successfully enabled
+            break;
+          }
+        }
+
+        if (!kioskEnabled) {
+          _showError('You must allow app pinning to check in.');
+          return;
+        }
+      }
+
       setState(() => _status = 'Verifying Check-in...');
       final res = await ApiService.checkIn(pos.latitude, pos.longitude, photo);
       if (!mounted) return;
 
       if (res.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
         final today = DateTime.now().toIso8601String().split('T')[0];
         await prefs.setBool('is_checked_in', true);
         await prefs.setString('last_action_date', today);
-        
-        // Handle Kiosk Mode (Phone Restriction)
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted) {
-          await KioskCountdownDialog.show(context, onComplete: () async {
-            _kioskRequestedTime = DateTime.now();
-            await startKioskMode();
-          });
-        }
         
         setState(() {
           _isCheckedIn = true;
@@ -333,6 +353,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           );
         }
       } else {
+        if (isRestricted) {
+          await stopKioskMode(); // Unpin if check-in fails
+        }
         final error = json.decode(res.body)['error'] ?? 'Check-in Rejected';
         _showError(error);
       }
