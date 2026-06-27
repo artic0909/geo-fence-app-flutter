@@ -339,7 +339,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      "PRIVACY VIOLATION: You forcibly unpinned the app and bypassed Kiosk Mode restrictions. You were auto-checked out.",
+                      "PRIVACY VIOLATION: You forcibly unpinned the app and bypassed App restrictions. You were auto-checked out.",
                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.red, fontStyle: FontStyle.normal),
                     ),
                   ),

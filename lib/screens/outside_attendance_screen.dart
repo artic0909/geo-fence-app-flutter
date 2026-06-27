@@ -31,6 +31,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   bool _isScreenLoading = true;
   bool _isChecking = false;
   bool _isOutsideCheckedIn = false;
+  String _lastActionDate = '';
   String _status = 'Ready for Outside Action';
   String _userName = 'User Name';
   String _orgName = 'Official Organization';
@@ -154,10 +155,19 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final status = data['attendance_status'];
+        final today = DateTime.now().toIso8601String().split('T')[0];
+        
         setState(() {
           _isOutsideCheckedIn = status['is_outside'] ?? false;
+          
+          if (status['is_completed'] == true) {
+            _lastActionDate = today;
+          }
+
           if (_isOutsideCheckedIn) {
             _status = 'Outside Session Active!';
+          } else if (_lastActionDate == today) {
+            _status = 'Outside Attendance completed for today';
           } else {
             _status = 'Ready for Outside Action';
           }
@@ -383,8 +393,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           await stopKioskMode();
         }
         
+        final today = DateTime.now().toIso8601String().split('T')[0];
         setState(() {
           _isOutsideCheckedIn = false;
+          _lastActionDate = today;
           _status = 'Outside Check-out Logged!';
           _reasonController.clear();
         });
@@ -472,16 +484,21 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
+    final String today = DateTime.now().toIso8601String().split('T')[0];
+    final bool isCompleted = !_isOutsideCheckedIn && _lastActionDate == today;
+
+    return PopScope(
+      canPop: !_isOutsideCheckedIn && !isCompleted,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
         children: [
           Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
           Positioned.fill(child: Opacity(opacity: 0.15, child: Image.asset('assets/map.png', fit: BoxFit.cover))),
 
           Column(
             children: [
-              _buildTopBar(saffron),
+              _buildTopBar(saffron, isCompleted),
               Expanded(
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(),
@@ -490,11 +507,11 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                       child: Column(
                         children: [
                           _buildSatelliteMap(saffron),
-                          _buildStatusRow(),
+                          _buildStatusRow(isCompleted),
                           const SizedBox(height: 30),
-                          if (!_isOutsideCheckedIn) _buildReasonInput(saffron),
+                          if (!_isOutsideCheckedIn && !isCompleted) _buildReasonInput(saffron),
                           const SizedBox(height: 10),
-                          _buildAttendanceButton(Colors.orange),
+                          _buildAttendanceButton(Colors.orange, isCompleted),
                           const SizedBox(height: 30),
                         ],
                       ),
@@ -516,10 +533,11 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           ),
         ],
       ),
+    ),
     );
   }
 
-  Widget _buildTopBar(Color saffron) {
+  Widget _buildTopBar(Color saffron, bool isCompleted) {
     return Container(
       padding: const EdgeInsets.only(top: 50, left: 24, right: 24, bottom: 20),
       decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]),
@@ -528,14 +546,15 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Row(
             children: [
-              IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20), onPressed: () {
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                } else {
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-                }
-              }),
-              const SizedBox(width: 5),
+              if (!_isOutsideCheckedIn && !isCompleted)
+                IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20), onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                  }
+                }),
+              if (!_isOutsideCheckedIn && !isCompleted) const SizedBox(width: 5),
               CircleAvatar(backgroundColor: saffron.withValues(alpha: 0.1), child: Icon(Icons.person_rounded, color: saffron)),
               const SizedBox(width: 15),
               Expanded(
@@ -609,9 +628,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     );
   }
 
-  Widget _buildStatusRow() {
+  Widget _buildStatusRow(bool isCompleted) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
       color: Colors.white.withValues(alpha: 0.7),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -629,7 +648,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!_isOutsideCheckedIn)
+              if (!_isOutsideCheckedIn && !isCompleted)
                 GestureDetector(
                   onTap: () {
                     if (Navigator.canPop(context)) {
@@ -681,9 +700,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     );
   }
 
-  Widget _buildAttendanceButton(Color orange) {
+  Widget _buildAttendanceButton(Color orange, bool isCompleted) {
     return GestureDetector(
-      onTap: _isChecking ? null : _toggleOutsideAttendance,
+      onTap: (_isChecking || isCompleted) ? null : _toggleOutsideAttendance,
       child: Container(
         width: 180, height: 180,
         decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.2), border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2)),
@@ -691,29 +710,35 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           child: Stack(
             alignment: Alignment.center,
             children: [
-              AnimatedBuilder(
-                animation: _pulseController,
-                builder: (context, child) => Container(
-                  width: 140 + (20 * _pulseController.value),
-                  height: 140 + (20 * _pulseController.value),
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withValues(alpha: 1 - _pulseController.value), width: 2)),
+              if (!isCompleted)
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) => Container(
+                    width: 140 + (20 * _pulseController.value),
+                    height: 140 + (20 * _pulseController.value),
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withValues(alpha: 1 - _pulseController.value), width: 2)),
+                  ),
                 ),
-              ),
               Container(
                 width: 130, height: 130,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: _isOutsideCheckedIn ? [const Color(0xFFFF5722), const Color(0xFFE64A19)] : [const Color(0xFFFFB74D), const Color(0xFFF57C00)]),
-                  boxShadow: [BoxShadow(color: (_isOutsideCheckedIn ? Colors.deepOrange : orange).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft, end: Alignment.bottomRight, 
+                    colors: isCompleted 
+                        ? [Colors.grey.shade400, Colors.grey.shade600]
+                        : (_isOutsideCheckedIn ? [const Color(0xFFFF5722), const Color(0xFFE64A19)] : [const Color(0xFFFFB74D), const Color(0xFFF57C00)])
+                  ),
+                  boxShadow: [BoxShadow(color: (isCompleted ? Colors.grey : (_isOutsideCheckedIn ? Colors.deepOrange : orange)).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
                 child: _isChecking 
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(_isOutsideCheckedIn ? Icons.exit_to_app_rounded : Icons.add_location_alt_rounded, color: Colors.white, size: 40),
+                        Icon(isCompleted ? Icons.check_circle_rounded : (_isOutsideCheckedIn ? Icons.exit_to_app_rounded : Icons.add_location_alt_rounded), color: Colors.white, size: 40),
                         const SizedBox(height: 8),
-                        Text(_isOutsideCheckedIn ? "FINISH" : "START", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                        Text(isCompleted ? "COMPLETED" : (_isOutsideCheckedIn ? "FINISH" : "START"), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
                       ],
                     ),
               ),
