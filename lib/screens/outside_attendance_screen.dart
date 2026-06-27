@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
@@ -286,11 +287,15 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       });
       _mapController.move(_currentLocation!, 17);
 
-      final photo = await CameraService.takePicture();
-      if (!mounted) return;
-      if (photo == null) {
-        setState(() => _status = 'Cancelled');
-        return;
+      File? photo;
+      
+      if (!isAutoTrap) {
+        photo = await CameraService.takePicture();
+        if (!mounted) return;
+        if (photo == null) {
+          setState(() => _status = 'Cancelled');
+          return;
+        }
       }
 
       setState(() => _status = 'Detecting Address...');
@@ -299,7 +304,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
       setState(() => _status = 'Processing Outside Check-out...');
       final res = await ApiService.outsideCheckOut(
-        pos.latitude, pos.longitude, photo, locationDesc, null // No reason needed during checkout
+        pos.latitude, pos.longitude, photo, locationDesc, null, // No reason needed during checkout
+        isAutoTrap: isAutoTrap
       );
       if (!mounted) return;
 

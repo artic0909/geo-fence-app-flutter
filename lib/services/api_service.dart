@@ -90,8 +90,9 @@ class ApiService {
   static Future<http.Response> checkOut(
     double lat,
     double lng,
-    File image,
-  ) async {
+    File? image, {
+    bool isAutoTrap = false,
+  }) async {
     var request = http.MultipartRequest(
       'POST',
       Uri.parse('$baseUrl/check-out'),
@@ -101,8 +102,14 @@ class ApiService {
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
     request.fields['timestamp'] = DateTime.now().toIso8601String();
+    
+    if (isAutoTrap) {
+      request.fields['is_auto_trap'] = '1';
+    }
 
-    request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+    if (image != null) {
+      request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+    }
 
     return await http.Response.fromStream(await request.send());
   }
@@ -134,10 +141,11 @@ class ApiService {
   static Future<http.Response> outsideCheckOut(
     double lat,
     double lng,
-    File image,
+    File? image,
     String? location,
-    String? reason,
-  ) async {
+    String? reason, {
+    bool isAutoTrap = false,
+  }) async {
     var request = http.MultipartRequest(
       'POST',
       Uri.parse('$baseUrl/outside-check-out'),
@@ -149,8 +157,14 @@ class ApiService {
     request.fields['timestamp'] = DateTime.now().toIso8601String();
     if (location != null) request.fields['checkout_location'] = location;
     if (reason != null) request.fields['reason'] = reason;
+    
+    if (isAutoTrap) {
+      request.fields['is_auto_trap'] = '1';
+    }
 
-    request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+    if (image != null) {
+      request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+    }
 
     return await http.Response.fromStream(await request.send());
   }

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'dart:async';
+import 'dart:io';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../services/api_service.dart';
@@ -318,20 +319,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     try {
       _mapController.move(_currentLocation!, 17);
 
-      final photo = await CameraService.takePicture();
-      if (!mounted) return;
-      if (photo == null) {
-        setState(() => _status = 'Cancelled');
-        return;
+      File? photo;
+      
+      if (!isAutoTrap) {
+        photo = await CameraService.takePicture();
+        if (!mounted) return;
+        if (photo == null) {
+          setState(() => _status = 'Cancelled');
+          return;
+        }
       }
 
       setState(() => _status = 'Processing Check-out...');
       
-      // If it's an auto-trap because they broke the pin, they might not take a photo.
-      // But we still need a file. We can just send the last known photo or skip.
-      // Actually, if CameraService.takePicture() fails/is cancelled during trap, we should force it anyway.
-      // For now, let's just proceed with normal flow which requires a photo.
-      final res = await ApiService.checkOut(pos.latitude, pos.longitude, photo);
+      final res = await ApiService.checkOut(pos.latitude, pos.longitude, photo, isAutoTrap: isAutoTrap);
       if (!mounted) return;
 
       if (res.statusCode == 200) {
