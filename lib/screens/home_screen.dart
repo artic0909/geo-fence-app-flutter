@@ -30,6 +30,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isChecking = false;
   bool _isCheckedIn = false;
+  
+  DateTime? _kioskRequestedTime;
+  Timer? _kioskCheckTimer;
+
   String _status = 'Ready for action';
   String _userName = 'User Name';
   String _orgName = 'Ranihati Construction Private Limited';
@@ -67,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (mode == KioskMode.disabled && _isCheckedIn) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted && _currentLocation != null) {
+        if (isRestricted && mounted && _currentLocation != null && !_isChecking) {
           debugPrint("User broke Kiosk Mode! Auto checking out...");
           await _checkOut(Position(
             latitude: _currentLocation!.latitude,
@@ -79,6 +83,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
       }
     });
+
+    _kioskCheckTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (_isCheckedIn && mounted) {
+        final prefs = await SharedPreferences.getInstance();
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        
+        if (isRestricted && _currentLocation != null && !_isChecking) {
+          final mode = await getKioskMode();
+          if (mode == KioskMode.disabled) {
+            // 15 seconds grace period to read and accept the prompt
+            final requested = _kioskRequestedTime ?? DateTime.now();
+            if (DateTime.now().difference(requested).inSeconds > 15) {
+              debugPrint("User denied or broke Kiosk Mode silently! Auto checking out...");
+              await _checkOut(Position(
+                latitude: _currentLocation!.latitude,
+                longitude: _currentLocation!.longitude,
+                timestamp: DateTime.now(),
+                accuracy: 0.0, altitude: 0.0, heading: 0.0, speed: 0.0, speedAccuracy: 0.0,
+                altitudeAccuracy: 0.0, headingAccuracy: 0.0,
+              ), isAutoTrap: true);
+            }
+          } else {
+            // Reset requested time once successfully enabled
+            _kioskRequestedTime = null;
+          }
+        }
+      }
+    });
   }
 
   @override
@@ -87,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _refreshController.dispose();
     _trackingTimer?.cancel();
     _kioskSubscription?.cancel();
+    _kioskCheckTimer?.cancel();
     super.dispose();
   }
 
@@ -281,6 +314,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         if (isRestricted && mounted) {
           await KioskCountdownDialog.show(context, onComplete: () async {
+            _kioskRequestedTime = DateTime.now();
             await startKioskMode();
           });
         }

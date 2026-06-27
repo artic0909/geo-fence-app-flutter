@@ -41,6 +41,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   bool _isMapRefreshing = false;
   Timer? _trackingTimer;
   StreamSubscription<KioskMode>? _kioskSubscription;
+  DateTime? _kioskRequestedTime;
+  Timer? _kioskCheckTimer;
 
   @override
   void initState() {
@@ -63,9 +65,31 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       if (mode == KioskMode.disabled && _isOutsideCheckedIn) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted && _currentLocation != null) {
+        if (isRestricted && mounted && _currentLocation != null && !_isChecking) {
           debugPrint("User broke Kiosk Mode! Auto checking out (Outside)...");
           await _outsideCheckOut(isAutoTrap: true);
+        }
+      }
+    });
+
+    _kioskCheckTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (_isOutsideCheckedIn && mounted) {
+        final prefs = await SharedPreferences.getInstance();
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        
+        if (isRestricted && _currentLocation != null && !_isChecking) {
+          final mode = await getKioskMode();
+          if (mode == KioskMode.disabled) {
+            // 15 seconds grace period to read and accept the prompt
+            final requested = _kioskRequestedTime ?? DateTime.now();
+            if (DateTime.now().difference(requested).inSeconds > 15) {
+              debugPrint("User denied or broke Kiosk Mode silently! Auto checking out (Outside)...");
+              await _outsideCheckOut(isAutoTrap: true);
+            }
+          } else {
+            // Reset requested time once successfully enabled
+            _kioskRequestedTime = null;
+          }
         }
       }
     });
@@ -77,6 +101,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _refreshController.dispose();
     _trackingTimer?.cancel();
     _kioskSubscription?.cancel();
+    _kioskCheckTimer?.cancel();
     _reasonController.dispose();
     super.dispose();
   }
@@ -246,6 +271,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         if (isRestricted && mounted) {
           await KioskCountdownDialog.show(context, onComplete: () async {
+            _kioskRequestedTime = DateTime.now();
             await startKioskMode();
           });
         }

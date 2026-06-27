@@ -199,9 +199,13 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
 
   Widget _buildNewCard(Attendance attend, Color saffron, Color green) {
     final status = attend.status.toLowerCase();
-    final Color color = attend.isOutside 
-        ? Colors.deepOrange 
-        : (status == 'present' ? green : (status == 'late' ? saffron : Colors.red));
+    final bool isTrap = attend.isAutoCheckoutTrap;
+    
+    final Color color = isTrap 
+        ? Colors.red.shade900
+        : (attend.isOutside 
+            ? Colors.deepOrange 
+            : (status == 'present' ? green : (status == 'late' ? saffron : Colors.red)));
     
     DateTime? dt;
     try { 
@@ -230,9 +234,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: attend.isOutside ? const Color(0xFFFFF3E0) : Colors.white, // Deeper orange for outside (Amber 50 -> Orange 50)
+        color: isTrap ? Colors.red.shade50 : (attend.isOutside ? const Color(0xFFFFF3E0) : Colors.white),
         borderRadius: BorderRadius.circular(30),
-        border: attend.isOutside ? Border.all(color: Colors.orange.withValues(alpha: 0.3), width: 1.5) : null,
+        border: Border.all(color: isTrap ? Colors.red.withValues(alpha: 0.5) : (attend.isOutside ? Colors.orange.withValues(alpha: 0.3) : Colors.transparent), width: 1.5),
         boxShadow: [BoxShadow(color: color.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
@@ -310,7 +314,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
                   child: Text(
-                    (attend.isOutside ? "OUTSIDE" : attend.status).toUpperCase(), 
+                    isTrap ? "VIOLATION" : (attend.isOutside ? "OUTSIDE" : attend.status).toUpperCase(), 
                     style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)
                   ),
                 ),
@@ -319,7 +323,31 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           ),
 
           // REASON SECTION (New)
-          if (attend.isOutside && attend.reason != null && attend.reason != "" && attend.reason != "null")
+          if (isTrap)
+          Padding(
+            padding: const EdgeInsets.only(left: 20, right: 20, bottom: 15),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      "PRIVACY VIOLATION: You forcibly unpinned the app and bypassed Kiosk Mode restrictions. You were auto-checked out.",
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.red, fontStyle: FontStyle.normal),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          else if (attend.isOutside && attend.reason != null && attend.reason != "" && attend.reason != "null")
           Padding(
             padding: const EdgeInsets.only(left: 20, right: 20, bottom: 15),
             child: Container(
@@ -347,7 +375,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             decoration: BoxDecoration(
-              color: attend.isOutside ? Colors.orange.withValues(alpha: 0.08) : const Color(0xFFF8F9FA),
+              color: isTrap ? Colors.red.withValues(alpha: 0.1) : (attend.isOutside ? Colors.orange.withValues(alpha: 0.08) : const Color(0xFFF8F9FA)),
               borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
             child: Row(

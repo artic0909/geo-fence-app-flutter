@@ -9,6 +9,7 @@ class Attendance {
   final String? checkOutLoc;
   final String? reason;
   final String type;
+  final bool isAutoCheckoutTrap;
 
   Attendance({
     required this.id,
@@ -21,6 +22,7 @@ class Attendance {
     this.checkOutLoc,
     this.reason,
     required this.type,
+    this.isAutoCheckoutTrap = false,
   });
 
   factory Attendance.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,7 @@ class Attendance {
       checkOutLoc: json['checkout_loc']?.toString(),
       reason: json['reason']?.toString(),
       type: json['type']?.toString() ?? 'normal',
+      isAutoCheckoutTrap: json['is_auto_checkout_trap'] == true || json['is_auto_checkout_trap'] == 1 || json['is_auto_checkout_trap'] == '1',
     );
   }
 
