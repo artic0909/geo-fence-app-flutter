@@ -9,6 +9,7 @@ import '../services/camera_service.dart';
 import '../services/api_service.dart';
 import 'dart:convert';
 import 'dart:ui';
+import 'dart:math' as math;
 import 'login_screen.dart';
 import 'outside_attendance_screen.dart';
 import 'history_screen.dart';
@@ -28,6 +29,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  bool _isScreenLoading = true;
   bool _isChecking = false;
   bool _isCheckedIn = false;
   
@@ -52,11 +54,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
-    _initLocation();
-    _startTracking();
-    BackgroundLocationService.startServiceManually();
-
+    
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -66,6 +64,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 1),
     );
+
+    _initializeApp();
 
     _kioskSubscription = watchKioskMode().listen((mode) async {
       if (mode == KioskMode.disabled && _isCheckedIn) {
@@ -111,6 +111,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
       }
     });
+  }
+
+  Future<void> _initializeApp() async {
+    await Future.wait([
+      _loadUserData(),
+      _initLocation(),
+    ]);
+    _startTracking();
+    BackgroundLocationService.startServiceManually();
+    if (mounted) {
+      setState(() {
+        _isScreenLoading = false;
+      });
+    }
   }
 
   @override
@@ -447,6 +461,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     const Color saffron = Color(0xFFFF9933);
     const Color green = Color(0xFF138808);
+    
+    if (_isScreenLoading) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
+            Positioned.fill(child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(color: Colors.white.withValues(alpha: 0.6)),
+            )),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(25),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: saffron.withValues(alpha: 0.2), blurRadius: 30, spreadRadius: 10),
+                      ]
+                    ),
+                    child: AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (context, child) {
+                        final scale = 1.0 + (0.2 * math.sin(_pulseController.value * math.pi));
+                        return Transform.scale(
+                          scale: scale,
+                          child: const Icon(Icons.location_on, color: saffron, size: 40),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const Text("INITIALIZING", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.black, letterSpacing: 2)),
+                  const SizedBox(height: 8),
+                  Text("Securely loading your workspace...", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black.withValues(alpha: 0.5))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final String today = DateTime.now().toIso8601String().split('T')[0];
     final bool isCompleted = !_isCheckedIn && _lastActionDate == today;
 
