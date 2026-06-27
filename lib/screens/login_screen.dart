@@ -69,6 +69,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         if (data['employee'] != null) {
           await prefs.setString('user_name', data['employee']['name'] ?? 'User');
           await prefs.setString('org_name', data['employee']['admin_name'] ?? 'Official Organization');
+          await prefs.setBool('phone_restriction', data['employee']['phone_restriction'] ?? false);
         }
         
         if (mounted) {

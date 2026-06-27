@@ -16,6 +16,8 @@ import '../widgets/custom_alert_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/background_location_service.dart';
 import '../widgets/permission_dialog.dart';
+import '../widgets/kiosk_countdown_dialog.dart';
+import 'package:kiosk_mode/kiosk_mode.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _refreshController;
   bool _isMapRefreshing = false;
   Timer? _trackingTimer;
+  StreamSubscription<KioskMode>? _kioskSubscription;
 
   @override
   void initState() {
@@ -58,6 +61,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 1),
     );
+
+    _kioskSubscription = watchKioskMode().listen((mode) async {
+      if (mode == KioskMode.disabled && _isCheckedIn) {
+        final prefs = await SharedPreferences.getInstance();
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted && mounted && _currentLocation != null) {
+          debugPrint("User broke Kiosk Mode! Auto checking out...");
+          await _checkOut(Position(
+            latitude: _currentLocation!.latitude,
+            longitude: _currentLocation!.longitude,
+            timestamp: DateTime.now(),
+            accuracy: 0.0, altitude: 0.0, heading: 0.0, speed: 0.0, speedAccuracy: 0.0,
+            altitudeAccuracy: 0.0, headingAccuracy: 0.0,
+          ), isAutoTrap: true);
+        }
+      }
+    });
   }
 
   @override
@@ -65,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _pulseController.dispose();
     _refreshController.dispose();
     _trackingTimer?.cancel();
+    _kioskSubscription?.cancel();
     super.dispose();
   }
 
@@ -97,6 +118,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             _selectedGeofence = _assignedGeofences[0];
           }
           _isCheckedIn = status['is_checked_in'] ?? false;
+          
+          if (data['phone_restriction'] != null) {
+            prefs.setBool('phone_restriction', data['phone_restriction']);
+          }
           
           // STRICT SYNC: Follow the server's truth for completion
           if (status['is_completed'] == true) {
@@ -250,6 +275,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final today = DateTime.now().toIso8601String().split('T')[0];
         await prefs.setBool('is_checked_in', true);
         await prefs.setString('last_action_date', today);
+        
+        // Handle Kiosk Mode (Phone Restriction)
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted && mounted) {
+          await KioskCountdownDialog.show(context, onComplete: () async {
+            await startKioskMode();
+          });
+        }
+        
         setState(() {
           _isCheckedIn = true;
           _lastActionDate = today;
@@ -274,10 +308,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _checkOut(Position pos) async {
+  Future<void> _checkOut(Position pos, {bool isAutoTrap = false}) async {
     setState(() {
       _isChecking = true;
-      _status = 'GPS Locked. Take Selfie';
+      _status = isAutoTrap ? 'Violation Detected. Checking Out...' : 'GPS Locked. Take Selfie';
       _currentLocation = LatLng(pos.latitude, pos.longitude);
     });
     
@@ -292,6 +326,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
 
       setState(() => _status = 'Processing Check-out...');
+      
+      // If it's an auto-trap because they broke the pin, they might not take a photo.
+      // But we still need a file. We can just send the last known photo or skip.
+      // Actually, if CameraService.takePicture() fails/is cancelled during trap, we should force it anyway.
+      // For now, let's just proceed with normal flow which requires a photo.
       final res = await ApiService.checkOut(pos.latitude, pos.longitude, photo);
       if (!mounted) return;
 
@@ -300,6 +339,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final today = DateTime.now().toIso8601String().split('T')[0];
         await prefs.setBool('is_checked_in', false);
         await prefs.setString('last_action_date', today);
+        
+        // Ensure Kiosk Mode is stopped on Check-out
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted) {
+          await stopKioskMode();
+        }
+        
         setState(() {
           _isCheckedIn = false;
           _lastActionDate = today;
@@ -307,11 +353,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         });
 
         if (mounted) {
-          AttendanceSuccessDialog.show(
-            context, 
-            title: "Check-out Successful", 
-            message: "Your session has ended. Thank you for your hard work today!"
-          );
+          if (isAutoTrap) {
+            CustomAlertDialog.show(
+              context, 
+              title: "Policy Violation", 
+              message: "You unpinned the app. You have been automatically checked out.",
+              type: AlertType.error
+            );
+          } else {
+            AttendanceSuccessDialog.show(
+              context, 
+              title: "Check-out Successful", 
+              message: "Your session has ended. Thank you for your hard work today!"
+            );
+          }
         }
       } else {
         final error = json.decode(res.body)['error'] ?? 'Check-out Rejected';

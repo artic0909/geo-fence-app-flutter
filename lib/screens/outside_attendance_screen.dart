@@ -15,6 +15,8 @@ import 'home_screen.dart';
 import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
 import '../widgets/permission_dialog.dart';
+import '../widgets/kiosk_countdown_dialog.dart';
+import 'package:kiosk_mode/kiosk_mode.dart';
 
 class OutsideAttendanceScreen extends StatefulWidget {
   const OutsideAttendanceScreen({super.key});
@@ -37,6 +39,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   late AnimationController _refreshController;
   bool _isMapRefreshing = false;
   Timer? _trackingTimer;
+  StreamSubscription<KioskMode>? _kioskSubscription;
 
   @override
   void initState() {
@@ -54,14 +57,26 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       vsync: this,
       duration: const Duration(seconds: 1),
     );
+
+    _kioskSubscription = watchKioskMode().listen((mode) async {
+      if (mode == KioskMode.disabled && _isOutsideCheckedIn) {
+        final prefs = await SharedPreferences.getInstance();
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted && mounted && _currentLocation != null) {
+          debugPrint("User broke Kiosk Mode! Auto checking out (Outside)...");
+          await _outsideCheckOut(isAutoTrap: true);
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     _refreshController.dispose();
-    _reasonController.dispose();
     _trackingTimer?.cancel();
+    _kioskSubscription?.cancel();
+    _reasonController.dispose();
     super.dispose();
   }
 
@@ -225,6 +240,15 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_outside_checked_in', true);
+        
+        // Handle Kiosk Mode (Phone Restriction)
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted && mounted) {
+          await KioskCountdownDialog.show(context, onComplete: () async {
+            await startKioskMode();
+          });
+        }
+        
         setState(() {
           _isOutsideCheckedIn = true;
           _status = 'Outside Check-in Confirmed!';
@@ -248,10 +272,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     }
   }
 
-  Future<void> _outsideCheckOut() async {
+  Future<void> _outsideCheckOut({bool isAutoTrap = false}) async {
     setState(() {
       _isChecking = true;
-      _status = 'Locking GPS...';
+      _status = isAutoTrap ? 'Violation Detected. Checking Out...' : 'Locking GPS...';
     });
     try {
       final pos = await LocationService.getCurrentLocation();
@@ -282,6 +306,13 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       if (res.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_outside_checked_in', false);
+        
+        // Ensure Kiosk Mode is stopped on Check-out
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted) {
+          await stopKioskMode();
+        }
+        
         setState(() {
           _isOutsideCheckedIn = false;
           _status = 'Outside Check-out Logged!';
@@ -289,11 +320,20 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         });
 
         if (mounted) {
-          AttendanceSuccessDialog.show(
-            context, 
-            title: "Outside Session Ended", 
-            message: "Your off-site duty has been logged. Return safely!"
-          );
+          if (isAutoTrap) {
+            CustomAlertDialog.show(
+              context, 
+              title: "Policy Violation", 
+              message: "You unpinned the app. You have been automatically checked out.",
+              type: AlertType.error
+            );
+          } else {
+            AttendanceSuccessDialog.show(
+              context, 
+              title: "Outside Session Ended", 
+              message: "Your off-site duty has been logged. Return safely!"
+            );
+          }
         }
       } else {
         _showError('Outside Check-out Rejected');
