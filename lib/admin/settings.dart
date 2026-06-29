@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import 'admin_drawer.dart';
 import 'dashboard_screen.dart';
 import '../widgets/admin_loader.dart';
+import '../widgets/admin_alert_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -89,9 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveChanges() async {
     if (_formKey.currentState!.validate()) {
       if (_newPasswordController.text.isNotEmpty && _newPasswordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Passwords do not match'), backgroundColor: Colors.red),
-        );
+        AdminAlertDialog.show(context, title: 'Mismatch', message: 'New passwords do not match.', isSuccess: false);
         return;
       }
 
@@ -118,23 +117,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final response = await ApiService.updateAdminSettings(data);
         if (response.statusCode == 200) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Settings saved successfully!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
-          );
+          AdminAlertDialog.show(context, title: 'Success', message: 'Settings saved successfully!', isSuccess: true);
           _newPasswordController.clear();
           _confirmPasswordController.clear();
         } else {
           final resData = jsonDecode(response.body);
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(resData['message'] ?? 'Update failed'), backgroundColor: Colors.red),
-          );
+          AdminAlertDialog.show(context, title: 'Update Failed', message: resData['message'] ?? 'Update failed', isSuccess: false);
         }
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update settings'), backgroundColor: Colors.red),
-        );
+        AdminAlertDialog.show(context, title: 'Error', message: 'Failed to update settings. Please check your connection.', isSuccess: false);
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
