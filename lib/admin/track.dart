@@ -9,7 +9,7 @@ class TrackScreen extends StatefulWidget {
   final int employeeId;
   final String employeeName;
 
-  const TrackScreen({Key? key, required this.employeeId, required this.employeeName}) : super(key: key);
+  const TrackScreen({super.key, required this.employeeId, required this.employeeName});
 
   @override
   State<TrackScreen> createState() => _TrackScreenState();
@@ -134,7 +134,7 @@ class _TrackScreenState extends State<TrackScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 5)),
                 ],
               ),
               child: Row(
@@ -142,7 +142,7 @@ class _TrackScreenState extends State<TrackScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
+                      color: primaryColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.history, color: primaryColor),

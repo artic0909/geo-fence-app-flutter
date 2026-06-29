@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
 import 'dart:convert';
 import '../services/api_service.dart';
 import 'track.dart';
 
 class TodayPresentScreen extends StatefulWidget {
-  const TodayPresentScreen({Key? key}) : super(key: key);
+  const TodayPresentScreen({super.key});
 
   @override
   State<TodayPresentScreen> createState() => _TodayPresentScreenState();
@@ -72,7 +72,7 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
                         child: Row(
                           children: [
                             CircleAvatar(
-                              backgroundColor: primaryColor.withOpacity(0.1),
+                              backgroundColor: primaryColor.withValues(alpha: 0.1),
                               child: const Icon(Icons.person, color: primaryColor),
                             ),
                             const SizedBox(width: 15),

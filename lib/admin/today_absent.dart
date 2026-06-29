@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TodayAbsentScreen extends StatefulWidget {
-  const TodayAbsentScreen({Key? key}) : super(key: key);
+  const TodayAbsentScreen({super.key});
 
   @override
   State<TodayAbsentScreen> createState() => _TodayAbsentScreenState();
@@ -59,8 +59,6 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF2E3192);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Absent Today', style: TextStyle(color: Colors.white)),
@@ -85,7 +83,7 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
                         child: Row(
                           children: [
                             CircleAvatar(
-                              backgroundColor: Colors.red.withOpacity(0.1),
+                              backgroundColor: Colors.red.withValues(alpha: 0.1),
                               child: const Icon(Icons.person_off, color: Colors.red),
                             ),
                             const SizedBox(width: 15),
