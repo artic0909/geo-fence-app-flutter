@@ -23,6 +23,7 @@ class _TrackScreenState extends State<TrackScreen> {
   LatLng? _currentLocation;
   String _lastUpdated = 'Fetching...';
   bool _isLoading = true;
+  bool _isFirstLoad = true;
   Timer? _timer;
 
   String _attendanceType = 'none';
@@ -61,7 +62,10 @@ class _TrackScreenState extends State<TrackScreen> {
             _checkinLocation = data['checkin_location'];
             _isLoading = false;
           });
-          _mapController.move(_currentLocation!, 16.0);
+          if (_isFirstLoad) {
+            _mapController.move(_currentLocation!, 16.0);
+            _isFirstLoad = false;
+          }
         }
       } else {
         if (mounted) {
@@ -128,8 +132,8 @@ class _TrackScreenState extends State<TrackScreen> {
                 ),
                 children: [
                   TileLayer(
-                    // Dark themed OpenStreetMap tiles
-                    urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                    // Google Maps Hybrid (Satellite + Labels)
+                    urlTemplate: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
                     userAgentPackageName: 'com.example.geofence',
                   ),
                   if (_geofence != null)
