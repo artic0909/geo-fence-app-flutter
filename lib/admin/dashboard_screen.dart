@@ -128,7 +128,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 const Icon(Icons.business, color: goldMain, size: 14),
                                 const SizedBox(width: 5),
-                                Text(_orgName, style: const TextStyle(fontSize: 13, color: goldMain, fontWeight: FontWeight.w600)),
+                                Expanded(
+                                  child: Text(
+                                    _orgName, 
+                                    style: const TextStyle(fontSize: 13, color: goldMain, fontWeight: FontWeight.w600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
