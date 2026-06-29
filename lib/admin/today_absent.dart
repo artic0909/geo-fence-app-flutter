@@ -138,7 +138,25 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
                                   const SizedBox(height: 4),
                                   Text(emp['designation'] ?? 'Employee', style: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.w600, letterSpacing: 1)),
                                   const SizedBox(height: 2),
+                                  Text('ID: ${emp['employee_id'] ?? 'N/A'}', style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 2),
                                   Text(emp['phone'] ?? 'N/A', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                  if (emp['geofences'] != null && (emp['geofences'] as List).isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 4,
+                                      runSpacing: 4,
+                                      children: (emp['geofences'] as List).map((g) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[850],
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: Colors.grey[800]!),
+                                        ),
+                                        child: Text(g.toString(), style: TextStyle(fontSize: 9, color: Colors.grey[400])),
+                                      )).toList(),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
