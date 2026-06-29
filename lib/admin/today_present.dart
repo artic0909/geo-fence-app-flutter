@@ -3,6 +3,8 @@ import 'dart:convert';
 import '../services/api_service.dart';
 import 'track.dart';
 import 'admin_drawer.dart';
+import '../widgets/admin_loader.dart';
+import 'dashboard_screen.dart';
 
 class TodayPresentScreen extends StatefulWidget {
   const TodayPresentScreen({super.key});
@@ -49,9 +51,15 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
     const Color goldMain = Color(0xFFD4AF37);
     const Color goldLight = Color(0xFFF9F1CC);
 
-    return Scaffold(
-      backgroundColor: bgDark,
-      appBar: AppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
+      },
+      child: Scaffold(
+        backgroundColor: bgDark,
+        appBar: AppBar(
         title: const Text('PRESENT TODAY', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 16)),
         backgroundColor: bgDark,
         elevation: 0,
@@ -67,7 +75,7 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
       ),
       endDrawer: const AdminDrawer(currentRoute: 'TodayPresent'),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: goldMain))
+          ? const AdminLoader()
           : _employees.isEmpty
               ? Center(
                   child: Column(
@@ -157,6 +165,7 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
                     );
                   },
                 ),
+      ),
     );
   }
 }

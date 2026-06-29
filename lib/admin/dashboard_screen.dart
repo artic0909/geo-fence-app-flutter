@@ -5,6 +5,7 @@ import 'today_present.dart';
 import 'today_absent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_drawer.dart';
+import '../widgets/admin_loader.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -64,9 +65,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const Color goldMain = Color(0xFFD4AF37);
     const Color goldLight = Color(0xFFF9F1CC);
 
-    return Scaffold(
-      backgroundColor: bgDark,
-      appBar: AppBar(
+    return PopScope(
+      canPop: true,
+      child: Scaffold(
+        backgroundColor: bgDark,
+        appBar: AppBar(
         title: const Text('GEOFENCE DASHBOARD', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 18)),
         backgroundColor: bgDark,
         elevation: 0,
@@ -86,7 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       endDrawer: const AdminDrawer(currentRoute: 'Dashboard'),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: goldMain))
+          ? const AdminLoader()
           : RefreshIndicator(
               color: bgDark,
               backgroundColor: goldMain,
@@ -181,6 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+      ),
     );
   }
 

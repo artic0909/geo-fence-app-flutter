@@ -253,4 +253,17 @@ class ApiService {
       headers: await getHeaders(),
     );
   }
+
+  // Admin Settings
+  static Future<http.Response> getAdminSettings() async {
+    return await http.get(Uri.parse('$baseUrl/admin/settings'), headers: await getHeaders());
+  }
+
+  static Future<http.Response> updateAdminSettings(Map<String, dynamic> data) async {
+    return await http.post(
+      Uri.parse('$baseUrl/admin/settings'),
+      headers: await getHeaders(),
+      body: jsonEncode(data),
+    );
+  }
 }
