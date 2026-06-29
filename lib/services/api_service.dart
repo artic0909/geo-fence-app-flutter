@@ -223,4 +223,34 @@ class ApiService {
     // For simplicity, using a fixed device name
     return 'flutter-app';
   }
+
+  // --- ADMIN ENDPOINTS ---
+
+  static Future<http.Response> getAdminDashboard() async {
+    return await http.get(
+      Uri.parse('$baseUrl/admin/dashboard'),
+      headers: await getHeaders(),
+    );
+  }
+
+  static Future<http.Response> getTodayPresent() async {
+    return await http.get(
+      Uri.parse('$baseUrl/admin/today-present'),
+      headers: await getHeaders(),
+    );
+  }
+
+  static Future<http.Response> getTodayAbsent() async {
+    return await http.get(
+      Uri.parse('$baseUrl/admin/today-absent'),
+      headers: await getHeaders(),
+    );
+  }
+
+  static Future<http.Response> getEmployeeLocation(int employeeId) async {
+    return await http.get(
+      Uri.parse('$baseUrl/admin/track/$employeeId'),
+      headers: await getHeaders(),
+    );
+  }
 }

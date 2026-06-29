@@ -1,11 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_alert_dialog.dart';
 import 'home_screen.dart';
+import '../admin/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,14 +68,23 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         await prefs.setString('token', data['token']);
         
         // Save user info from the 'employee' object
+        bool isAdmin = false;
         if (data['employee'] != null) {
           await prefs.setString('user_name', data['employee']['name'] ?? 'User');
           await prefs.setString('org_name', data['employee']['business_name'] ?? data['employee']['admin_name'] ?? 'Official Organization');
           await prefs.setBool('phone_restriction', data['employee']['phone_restriction'] ?? false);
+          
+          if (data['employee']['role'] == 'admin' || data['employee']['role'] == 'superadmin') {
+            isAdmin = true;
+          }
         }
         
         if (mounted) {
-          _navigateToHomeWithFlagTransition();
+          if (isAdmin) {
+            _navigateToDashboard();
+          } else {
+            _navigateToHomeWithFlagTransition();
+          }
         }
       } else {
         String errorMessage = 'Login failed';
@@ -97,6 +108,13 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _navigateToDashboard() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const DashboardScreen()),
+    );
   }
 
   void _navigateToHomeWithFlagTransition() {
