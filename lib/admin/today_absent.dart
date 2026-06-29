@@ -32,8 +32,6 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
             _employees = data['absent_employees'] ?? [];
           });
         }
-      } else {
-        debugPrint('Error: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error loading absent employees: $e');
@@ -60,15 +58,22 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const Color bgDark = Color(0xFF121212);
+    const Color cardDark = Color(0xFF1E1E1E);
+    const Color goldMain = Color(0xFFD4AF37);
+    const Color goldLight = Color(0xFFF9F1CC);
+
     return Scaffold(
+      backgroundColor: bgDark,
       appBar: AppBar(
-        title: const Text('Absent Today', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.red[600],
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('ABSENT TODAY', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 16)),
+        backgroundColor: bgDark,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: goldMain),
         actions: [
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
+              icon: const Icon(Icons.menu_open, color: goldMain),
               onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
           ),
@@ -76,42 +81,72 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
       ),
       endDrawer: const AdminDrawer(currentRoute: 'TodayAbsent'),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: goldMain))
           : _employees.isEmpty
-              ? const Center(child: Text("All employees are present today!"))
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 60, color: Colors.grey[800]),
+                      const SizedBox(height: 15),
+                      Text("Perfect! Everyone is present.", style: TextStyle(color: Colors.grey[500], fontSize: 16, letterSpacing: 1)),
+                    ],
+                  ),
+                )
               : ListView.builder(
-                  padding: const EdgeInsets.all(15),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                   itemCount: _employees.length,
                   itemBuilder: (context, index) {
                     final emp = _employees[index];
-                    return Card(
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 15),
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      decoration: BoxDecoration(
+                        color: cardDark,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.grey[850]!, width: 1),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5)),
+                        ],
+                      ),
                       child: Padding(
-                        padding: const EdgeInsets.all(15),
+                        padding: const EdgeInsets.all(20),
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              backgroundColor: Colors.red.withValues(alpha: 0.1),
-                              child: const Icon(Icons.person_off, color: Colors.red),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: bgDark,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                              ),
+                              child: const Icon(Icons.person_off, color: Colors.redAccent, size: 24),
                             ),
                             const SizedBox(width: 15),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(emp['name'] ?? 'Unknown', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 5),
-                                  Text(emp['designation'] ?? 'Employee', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                                  Text(emp['phone'] ?? 'N/A', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                                  Text(emp['name'] ?? 'Unknown', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: goldLight)),
+                                  const SizedBox(height: 4),
+                                  Text(emp['designation'] ?? 'Employee', style: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.w600, letterSpacing: 1)),
+                                  const SizedBox(height: 2),
+                                  Text(emp['phone'] ?? 'N/A', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                                 ],
                               ),
                             ),
                             if (emp['phone'] != null && emp['phone'] != 'N/A')
-                              IconButton(
-                                icon: const Icon(Icons.call, color: Colors.green),
-                                onPressed: () => _makePhoneCall(emp['phone']),
+                              InkWell(
+                                onTap: () => _makePhoneCall(emp['phone']),
+                                borderRadius: BorderRadius.circular(30),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: bgDark,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.grey[800]!),
+                                  ),
+                                  child: const Icon(Icons.call, color: Colors.greenAccent, size: 20),
+                                ),
                               ),
                           ],
                         ),

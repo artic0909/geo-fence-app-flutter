@@ -25,104 +25,134 @@ class AdminDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF2E3192);
+    const Color bgDark = Color(0xFF121212);
+    const Color cardDark = Color(0xFF1E1E1E);
+    const Color goldMain = Color(0xFFD4AF37);
+    const Color goldLight = Color(0xFFF9F1CC);
 
-    return Drawer(
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(top: 50, bottom: 20),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primaryColor, Color(0xFF1BFFFF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return Theme(
+      data: Theme.of(context).copyWith(
+        canvasColor: cardDark,
+      ),
+      child: Drawer(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(top: 60, bottom: 30),
+              decoration: const BoxDecoration(
+                color: bgDark,
+                border: Border(bottom: BorderSide(color: Color(0xFF333333), width: 1)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: goldMain, width: 2),
+                    ),
+                    child: const CircleAvatar(
+                      radius: 40,
+                      backgroundColor: cardDark,
+                      child: Icon(Icons.admin_panel_settings, size: 40, color: goldMain),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  const Text(
+                    'EXECUTIVE',
+                    style: TextStyle(color: goldLight, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 3),
+                  ),
+                  const Text(
+                    'PANEL',
+                    style: TextStyle(color: goldMain, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 5),
+                  ),
+                ],
               ),
             ),
-            child: const Column(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.admin_panel_settings, size: 40, color: primaryColor),
+            Expanded(
+              child: Container(
+                color: cardDark,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  children: [
+                    _buildDrawerItem(
+                      context: context,
+                      title: 'DASHBOARD',
+                      icon: Icons.dashboard_outlined,
+                      routeName: 'Dashboard',
+                      onTap: () {
+                        if (currentRoute != 'Dashboard') {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
+                    ),
+                    _buildDrawerItem(
+                      context: context,
+                      title: 'TODAY PRESENT',
+                      icon: Icons.how_to_reg_outlined,
+                      routeName: 'TodayPresent',
+                      onTap: () {
+                        if (currentRoute != 'TodayPresent') {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TodayPresentScreen()));
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
+                    ),
+                    _buildDrawerItem(
+                      context: context,
+                      title: 'TODAY ABSENT',
+                      icon: Icons.person_off_outlined,
+                      routeName: 'TodayAbsent',
+                      onTap: () {
+                        if (currentRoute != 'TodayAbsent') {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TodayAbsentScreen()));
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      child: Divider(color: Colors.grey[800]),
+                    ),
+                    _buildDrawerItem(
+                      context: context,
+                      title: 'SETTINGS',
+                      icon: Icons.settings_outlined,
+                      routeName: 'Settings',
+                      onTap: () {
+                        if (currentRoute != 'Settings') {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
+                    ),
+                  ],
                 ),
-                SizedBox(height: 15),
-                Text(
-                  'Admin Menu',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ],
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _buildDrawerItem(
-                  context: context,
-                  title: 'Dashboard',
-                  icon: Icons.dashboard,
-                  routeName: 'Dashboard',
-                  onTap: () {
-                    if (currentRoute != 'Dashboard') {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
-                    } else {
-                      Navigator.pop(context); // Close drawer
-                    }
-                  },
-                ),
-                _buildDrawerItem(
-                  context: context,
-                  title: 'Today Present',
-                  icon: Icons.how_to_reg,
-                  routeName: 'TodayPresent',
-                  onTap: () {
-                    if (currentRoute != 'TodayPresent') {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TodayPresentScreen()));
-                    } else {
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
-                _buildDrawerItem(
-                  context: context,
-                  title: 'Today Absent',
-                  icon: Icons.person_off,
-                  routeName: 'TodayAbsent',
-                  onTap: () {
-                    if (currentRoute != 'TodayAbsent') {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TodayAbsentScreen()));
-                    } else {
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
-                const Divider(),
-                _buildDrawerItem(
-                  context: context,
-                  title: 'Settings',
-                  icon: Icons.settings,
-                  routeName: 'Settings',
-                  onTap: () {
-                    if (currentRoute != 'Settings') {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                    } else {
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
-              ],
+            Container(
+              color: bgDark,
+              child: Column(
+                children: [
+                  Divider(height: 1, color: Colors.grey[900]),
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 5),
+                    leading: const Icon(Icons.power_settings_new, color: Colors.redAccent),
+                    title: const Text('SECURE LOGOUT', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 13)),
+                    onTap: () => _logout(context),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
-            onTap: () => _logout(context),
-          ),
-          const SizedBox(height: 20),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -135,23 +165,27 @@ class AdminDrawer extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     final bool isSelected = currentRoute == routeName;
-    const Color primaryColor = Color(0xFF2E3192);
+    const Color goldMain = Color(0xFFD4AF37);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
       decoration: BoxDecoration(
-        color: isSelected ? primaryColor.withValues(alpha: 0.1) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        color: isSelected ? goldMain.withValues(alpha: 0.15) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        border: isSelected ? Border.all(color: goldMain.withValues(alpha: 0.5), width: 1) : Border.all(color: Colors.transparent, width: 1),
       ),
       child: ListTile(
-        leading: Icon(icon, color: isSelected ? primaryColor : Colors.grey[700]),
+        leading: Icon(icon, color: isSelected ? goldMain : Colors.grey[500], size: 22),
         title: Text(
           title,
           style: TextStyle(
-            color: isSelected ? primaryColor : Colors.grey[800],
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? goldMain : Colors.grey[400],
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            letterSpacing: 1.2,
+            fontSize: 13,
           ),
         ),
+        trailing: isSelected ? const Icon(Icons.chevron_right, color: goldMain, size: 20) : null,
         onTap: onTap,
       ),
     );

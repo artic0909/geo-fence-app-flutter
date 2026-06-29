@@ -19,7 +19,7 @@ class TrackScreen extends StatefulWidget {
 class _TrackScreenState extends State<TrackScreen> {
   final MapController _mapController = MapController();
   LatLng? _currentLocation;
-  String _lastUpdated = 'Loading...';
+  String _lastUpdated = 'Fetching...';
   bool _isLoading = true;
   Timer? _timer;
 
@@ -57,7 +57,7 @@ class _TrackScreenState extends State<TrackScreen> {
       } else {
         if (mounted) {
           setState(() {
-            _lastUpdated = 'Failed to fetch location';
+            _lastUpdated = 'Location unavailable';
             _isLoading = false;
           });
         }
@@ -74,17 +74,28 @@ class _TrackScreenState extends State<TrackScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF2E3192);
+    const Color bgDark = Color(0xFF121212);
+    const Color cardDark = Color(0xFF1E1E1E);
+    const Color goldMain = Color(0xFFD4AF37);
+    const Color goldLight = Color(0xFFF9F1CC);
 
     return Scaffold(
+      backgroundColor: bgDark,
       appBar: AppBar(
-        title: Text('Tracking: ${widget.employeeName}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-        backgroundColor: primaryColor,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('LIVE TRACKING', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 12)),
+            Text(widget.employeeName.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w600, color: goldLight, fontSize: 16)),
+          ],
+        ),
+        backgroundColor: bgDark,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: goldMain),
         actions: [
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
+              icon: const Icon(Icons.menu_open, color: goldMain),
               onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
           ),
@@ -102,27 +113,39 @@ class _TrackScreenState extends State<TrackScreen> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  // Dark themed OpenStreetMap tiles
+                  urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
                   userAgentPackageName: 'com.example.geofence',
                 ),
                 MarkerLayer(
                   markers: [
                     Marker(
                       point: _currentLocation!,
-                      width: 80,
-                      height: 80,
+                      width: 100,
+                      height: 100,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: primaryColor,
-                              borderRadius: BorderRadius.circular(10),
+                              color: bgDark,
+                              border: Border.all(color: goldMain),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(color: goldMain.withValues(alpha: 0.3), blurRadius: 10),
+                              ],
                             ),
-                            child: const Text('Live', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.circle, color: Colors.greenAccent, size: 8),
+                                SizedBox(width: 5),
+                                Text('LIVE', style: TextStyle(color: goldMain, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                              ],
+                            ),
                           ),
-                          const Icon(Icons.location_on, color: Colors.red, size: 40),
+                          const Icon(Icons.location_on, color: goldMain, size: 45),
                         ],
                       ),
                     ),
@@ -131,7 +154,7 @@ class _TrackScreenState extends State<TrackScreen> {
               ],
             )
           else
-            const Center(child: CircularProgressIndicator()),
+            const Center(child: CircularProgressIndicator(color: goldMain)),
             
           // Status overlay
           Positioned(
@@ -139,32 +162,34 @@ class _TrackScreenState extends State<TrackScreen> {
             left: 20,
             right: 20,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
+                color: cardDark,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: goldMain.withValues(alpha: 0.3)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 15, offset: const Offset(0, 10)),
                 ],
               ),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: primaryColor.withValues(alpha: 0.1),
+                      color: bgDark,
                       shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey[800]!),
                     ),
-                    child: const Icon(Icons.history, color: primaryColor),
+                    child: const Icon(Icons.update, color: goldMain, size: 20),
                   ),
                   const SizedBox(width: 15),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Last Updated', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
-                        Text(_lastUpdated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        Text('LAST UPDATED', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+                        const SizedBox(height: 4),
+                        Text(_lastUpdated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: goldLight)),
                       ],
                     ),
                   ),
@@ -172,7 +197,7 @@ class _TrackScreenState extends State<TrackScreen> {
                     const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: goldMain),
                     ),
                 ],
               ),
@@ -180,10 +205,14 @@ class _TrackScreenState extends State<TrackScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _fetchLocation,
-        backgroundColor: primaryColor,
-        child: const Icon(Icons.my_location, color: Colors.white),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 120),
+        child: FloatingActionButton(
+          onPressed: _fetchLocation,
+          backgroundColor: goldMain,
+          foregroundColor: bgDark,
+          child: const Icon(Icons.my_location),
+        ),
       ),
     );
   }

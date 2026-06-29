@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'dart:convert';
 import '../services/api_service.dart';
 import 'today_present.dart';
@@ -47,8 +46,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _todayAbsent = data['today_absent'] ?? 0;
           });
         }
-      } else {
-        debugPrint('Dashboard Error: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error loading dashboard: $e');
@@ -61,30 +58,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF2E3192);
-    const Color secondaryColor = Color(0xFF1BFFFF);
+    // Dark & Golden Theme Colors
+    const Color bgDark = Color(0xFF121212);
+    const Color cardDark = Color(0xFF1E1E1E);
+    const Color goldMain = Color(0xFFD4AF37);
+    const Color goldLight = Color(0xFFF9F1CC);
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: bgDark,
       appBar: AppBar(
-        title: const Text('Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [primaryColor, secondaryColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+        title: const Text('GEOFENCE DASHBOARD', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 18)),
+        backgroundColor: bgDark,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: goldMain),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh, color: goldMain),
             onPressed: _loadDashboardData,
           ),
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
+              icon: const Icon(Icons.menu_open, color: goldMain),
               onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
           ),
@@ -92,46 +86,97 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       endDrawer: const AdminDrawer(currentRoute: 'Dashboard'),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: goldMain))
           : RefreshIndicator(
+              color: bgDark,
+              backgroundColor: goldMain,
               onRefresh: _loadDashboardData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Welcome, $_adminName", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    if (_orgName.isNotEmpty)
-                      Text(_orgName, style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                    // Greeting Section
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(25),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2A2A2A), cardDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: goldMain.withValues(alpha: 0.3), width: 1),
+                        boxShadow: [
+                          BoxShadow(color: goldMain.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10)),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Welcome back,", style: TextStyle(fontSize: 14, color: Colors.grey[400], letterSpacing: 1.2)),
+                          const SizedBox(height: 5),
+                          Text(_adminName.toUpperCase(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: goldLight)),
+                          if (_orgName.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                const Icon(Icons.business, color: goldMain, size: 14),
+                                const SizedBox(width: 5),
+                                Text(_orgName, style: const TextStyle(fontSize: 13, color: goldMain, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                     
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 35),
+                    Row(
+                      children: [
+                        const Icon(Icons.analytics_outlined, color: goldMain, size: 20),
+                        const SizedBox(width: 8),
+                        Text("KEY METRICS", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[400], letterSpacing: 2)),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
                     
-                    _buildKPIGrid(),
+                    _buildKPIGrid(cardDark, goldMain, goldLight),
                     
-                    const SizedBox(height: 40),
-                    const Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 35),
+                    Row(
+                      children: [
+                        const Icon(Icons.bolt, color: goldMain, size: 20),
+                        const SizedBox(width: 8),
+                        Text("QUICK ACTIONS", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[400], letterSpacing: 2)),
+                      ],
+                    ),
                     const SizedBox(height: 15),
                     
                     _buildActionCard(
-                      title: "Today's Present Employees",
-                      subtitle: "View and track active employees",
+                      title: "Today's Present",
+                      subtitle: "Monitor active field agents",
                       icon: Icons.how_to_reg,
-                      color: Colors.green,
+                      cardColor: cardDark,
+                      accentColor: goldMain,
                       onTap: () {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const TodayPresentScreen()));
                       },
                     ),
                     const SizedBox(height: 15),
                     _buildActionCard(
-                      title: "Today's Absent Employees",
-                      subtitle: "View employees who haven't checked in",
+                      title: "Today's Absent",
+                      subtitle: "Review missing attendance",
                       icon: Icons.person_off,
-                      color: Colors.red,
+                      cardColor: cardDark,
+                      accentColor: Colors.redAccent,
                       onTap: () {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const TodayAbsentScreen()));
                       },
                     ),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -139,29 +184,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildKPIGrid() {
+  Widget _buildKPIGrid(Color cardColor, Color accentColor, Color textColor) {
     return GridView.count(
       shrinkWrap: true,
       crossAxisCount: 2,
       crossAxisSpacing: 15,
       mainAxisSpacing: 15,
+      childAspectRatio: 1.1,
       physics: const NeverScrollableScrollPhysics(),
       children: [
-        _buildKPICard("Total Employees", _totalEmployees.toString(), Icons.people, Colors.blue),
-        _buildKPICard("Total Geofences", _totalGeofences.toString(), Icons.location_on, Colors.orange),
-        _buildKPICard("Present Today", _todayPresent.toString(), Icons.check_circle, Colors.green),
-        _buildKPICard("Absent Today", _todayAbsent.toString(), Icons.cancel, Colors.red),
+        _buildKPICard("Total Staff", _totalEmployees.toString(), Icons.people_alt_outlined, cardColor, accentColor, textColor),
+        _buildKPICard("Geofences", _totalGeofences.toString(), Icons.radar_outlined, cardColor, accentColor, textColor),
+        _buildKPICard("Present", _todayPresent.toString(), Icons.check_circle_outline, cardColor, accentColor, textColor),
+        _buildKPICard("Absent", _todayAbsent.toString(), Icons.highlight_off, cardColor, Colors.redAccent, textColor),
       ],
     );
   }
 
-  Widget _buildKPICard(String title, String value, IconData icon, Color color) {
+  Widget _buildKPICard(String title, String value, IconData icon, Color cardColor, Color accentColor, Color textColor) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accentColor.withValues(alpha: 0.2), width: 1),
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 15, offset: const Offset(0, 5)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
       padding: const EdgeInsets.all(20),
@@ -169,17 +216,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 30),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: accentColor, size: 22),
+              ),
+              Icon(Icons.arrow_outward, color: Colors.grey[700], size: 16),
+            ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)),
-              const SizedBox(height: 5),
-              Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[600])),
+              Text(value, style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: textColor)),
+              const SizedBox(height: 2),
+              Text(title.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey[500], letterSpacing: 1)),
             ],
           ),
         ],
@@ -187,15 +243,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildActionCard({required String title, required String subtitle, required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _buildActionCard({required String title, required String subtitle, required IconData icon, required Color cardColor, required Color accentColor, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.grey[850]!, width: 1),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 5)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4)),
           ],
         ),
         padding: const EdgeInsets.all(20),
@@ -203,21 +260,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, color: color, size: 30),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [accentColor.withValues(alpha: 0.2), accentColor.withValues(alpha: 0.05)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+              ),
+              child: Icon(icon, color: accentColor, size: 26),
             ),
             const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                  const SizedBox(height: 5),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[400])),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF121212),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Icon(Icons.arrow_forward_ios, color: Color(0xFFD4AF37), size: 14),
+            ),
           ],
         ),
       ),
