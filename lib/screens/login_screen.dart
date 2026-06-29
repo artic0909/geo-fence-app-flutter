@@ -204,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Future<void> _launchURL() async {
-    final Uri url = Uri.parse('https://locate.graphicodeindia.com/admin/register');
+    final Uri url = Uri.parse('http://geofence.sumatrasales.com/register');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
         CustomAlertDialog.show(context, title: 'Link Failed', message: 'Could not launch registration link', type: AlertType.warning);
