@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../services/api_service.dart';
 import 'track.dart';
+import 'admin_drawer.dart';
 
 class TodayPresentScreen extends StatefulWidget {
   const TodayPresentScreen({super.key});
@@ -53,7 +54,16 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
         title: const Text('Present Today', style: TextStyle(color: Colors.white)),
         backgroundColor: primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
+      endDrawer: const AdminDrawer(currentRoute: 'TodayPresent'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _employees.isEmpty

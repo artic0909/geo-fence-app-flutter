@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'admin_drawer.dart';
 
 class TodayAbsentScreen extends StatefulWidget {
   const TodayAbsentScreen({super.key});
@@ -64,7 +65,16 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
         title: const Text('Absent Today', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.red[600],
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
+      endDrawer: const AdminDrawer(currentRoute: 'TodayAbsent'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _employees.isEmpty

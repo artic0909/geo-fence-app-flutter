@@ -77,6 +77,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           if (data['employee']['role'] == 'admin' || data['employee']['role'] == 'superadmin') {
             isAdmin = true;
           }
+          await prefs.setBool('is_admin', isAdmin);
         }
         
         if (mounted) {

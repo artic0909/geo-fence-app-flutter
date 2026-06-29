@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import '../admin/dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui';
 
@@ -68,13 +69,21 @@ class _PermissionScreenState extends State<PermissionScreen> {
     if (hasLocation && hasCamera) {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
+      final isAdmin = prefs.getBool('is_admin') ?? false;
 
       if (mounted) {
         if (token != null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
+          if (isAdmin) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          }
         } else {
           Navigator.pushReplacement(
             context,

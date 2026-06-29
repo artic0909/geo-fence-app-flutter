@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'dart:async';
 import 'dart:convert';
 import '../services/api_service.dart';
+import 'admin_drawer.dart';
 
 class TrackScreen extends StatefulWidget {
   final int employeeId;
@@ -80,7 +81,16 @@ class _TrackScreenState extends State<TrackScreen> {
         title: Text('Tracking: ${widget.employeeName}', style: const TextStyle(color: Colors.white, fontSize: 16)),
         backgroundColor: primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
+      endDrawer: const AdminDrawer(currentRoute: 'Track'),
       body: Stack(
         children: [
           if (_currentLocation != null)

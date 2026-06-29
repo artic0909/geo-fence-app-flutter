@@ -4,8 +4,8 @@ import 'dart:convert';
 import '../services/api_service.dart';
 import 'today_present.dart';
 import 'today_absent.dart';
-import '../screens/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'admin_drawer.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -59,18 +59,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF2E3192);
@@ -94,12 +82,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadDashboardData,
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _logout,
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
           ),
         ],
       ),
+      endDrawer: const AdminDrawer(currentRoute: 'Dashboard'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
