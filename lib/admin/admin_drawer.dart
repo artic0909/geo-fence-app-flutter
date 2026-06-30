@@ -47,25 +47,35 @@ class AdminDrawer extends StatelessWidget {
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(3),
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: goldMain, width: 2),
                     ),
-                    child: const CircleAvatar(
+                    child: CircleAvatar(
                       radius: 40,
-                      backgroundColor: cardDark,
-                      child: Icon(Icons.admin_panel_settings, size: 40, color: goldMain),
+                      backgroundColor: Colors.transparent,
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/playstore.png',
+                          fit: BoxFit.cover,
+                          width: 80,
+                          height: 80,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.admin_panel_settings, size: 40, color: goldMain);
+                          },
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 15),
                   const Text(
-                    'EXECUTIVE',
+                    'GEOFENCE',
                     style: TextStyle(color: goldLight, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 3),
                   ),
                   const Text(
-                    'PANEL',
-                    style: TextStyle(color: goldMain, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 5),
+                    'SMART ATTENDANCE',
+                    style: TextStyle(color: goldMain, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
                   ),
                 ],
               ),
@@ -136,7 +146,7 @@ class AdminDrawer extends StatelessWidget {
                 ),
               ),
             ),
-            Container(
+            Material(
               color: bgDark,
               child: Column(
                 children: [
@@ -167,14 +177,14 @@ class AdminDrawer extends StatelessWidget {
     final bool isSelected = currentRoute == routeName;
     const Color goldMain = Color(0xFFD4AF37);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
-      decoration: BoxDecoration(
-        color: isSelected ? goldMain.withValues(alpha: 0.15) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        border: isSelected ? Border.all(color: goldMain.withValues(alpha: 0.5), width: 1) : Border.all(color: Colors.transparent, width: 1),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
       child: ListTile(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isSelected ? BorderSide(color: goldMain.withValues(alpha: 0.5), width: 1) : BorderSide.none,
+        ),
+        tileColor: isSelected ? goldMain.withValues(alpha: 0.15) : Colors.transparent,
         leading: Icon(icon, color: isSelected ? goldMain : Colors.grey[500], size: 22),
         title: Text(
           title,

@@ -49,9 +49,12 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
       scheme: 'tel',
       path: phoneNumber,
     );
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    } else {
+    try {
+      final bool launched = await launchUrl(launchUri);
+      if (!launched) {
+        throw Exception('Could not launch $launchUri');
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not launch phone dialer.')));
       }
