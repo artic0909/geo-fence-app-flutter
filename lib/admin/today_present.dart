@@ -85,6 +85,7 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
       child: Scaffold(
         backgroundColor: bgDark,
         appBar: AppBar(
+          automaticallyImplyLeading: false,
           title: const Text('PRESENT TODAY', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 16)),
           backgroundColor: bgDark,
           elevation: 0,

@@ -77,10 +77,11 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
       child: Scaffold(
         backgroundColor: bgDark,
         appBar: AppBar(
-        title: const Text('ABSENT TODAY', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 16)),
-        backgroundColor: bgDark,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: goldMain),
+          automaticallyImplyLeading: false,
+          title: const Text('ABSENT TODAY', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 16)),
+          backgroundColor: bgDark,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: goldMain),
         actions: [
           Builder(
             builder: (context) => IconButton(
