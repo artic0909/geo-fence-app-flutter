@@ -70,6 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         backgroundColor: bgDark,
         appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('GEOFENCE DASHBOARD', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 18)),
         backgroundColor: bgDark,
         elevation: 0,
@@ -201,7 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisCount: 2,
       crossAxisSpacing: 15,
       mainAxisSpacing: 15,
-      childAspectRatio: 1.1,
+      childAspectRatio: 1.35,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         _buildKPICard("Total Staff", _totalEmployees.toString(), Icons.people_alt_outlined, cardColor, accentColor, textColor),
@@ -222,7 +223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(15),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -244,7 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: textColor)),
+              Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: textColor)),
               const SizedBox(height: 2),
               Text(title.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey[500], letterSpacing: 1)),
             ],
