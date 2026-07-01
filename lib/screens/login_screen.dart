@@ -394,7 +394,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                       const SizedBox(height: 25),
                                       _buildTextField(
                                         controller: _emailController,
-                                        label: widget.isCompany ? 'Email or Company ID' : 'Email or Employee ID',
+                                        label: widget.isCompany ? 'Email' : 'Email or Employee@ ID',
                                         icon: widget.isCompany ? Icons.business : Icons.person_outline,
                                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                                       ),
@@ -457,62 +457,62 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                         ),
                       ),
                       
-                      const SizedBox(height: 50),
-                      
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Column(
-                          children: [
+                      if (widget.isCompany) ...[
+                        const SizedBox(height: 50),
+                        
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Column(
+                            children: [
                               Text(
-                                widget.isCompany 
-                                    ? "New to Geofence? Register your\nOrganization or Company below"
-                                    : "Ask your Organization to invite you\nor register a new Company below",
+                                "New to Geofence? Register your\nOrganization or Company below",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                color: Colors.black.withValues(alpha: 0.7),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            InkWell(
-                              onTap: _launchURL,
-                              borderRadius: BorderRadius.circular(30),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(30),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.05),
-                                      blurRadius: 10,
-                                    ),
-                                  ],
+                                  color: Colors.black.withValues(alpha: 0.7),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.5,
                                 ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.public, size: 20, color: Color(0xFF1A1A1A)),
-                                    SizedBox(width: 10),
-                                    Text(
-                                      'Official Website',
-                                      style: TextStyle(
-                                        color: Color(0xFF1A1A1A),
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 15,
+                              ),
+                              const SizedBox(height: 18),
+                              InkWell(
+                                onTap: _launchURL,
+                                borderRadius: BorderRadius.circular(30),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    borderRadius: BorderRadius.circular(30),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 10,
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.public, size: 20, color: Color(0xFF1A1A1A)),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'Official Website',
+                                        style: TextStyle(
+                                          color: Color(0xFF1A1A1A),
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 40),
-                          ],
+                              const SizedBox(height: 40),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
