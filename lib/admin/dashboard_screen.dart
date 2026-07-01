@@ -94,6 +94,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final response = await ApiService.createSubscriptionOrder();
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        if (data['is_free'] == true) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'] ?? 'Free trial activated!')));
+            _loadDashboardData();
+          }
+          return;
+        }
+
         _pendingPlanId = data['plan_id'];
         var options = {
           'key': data['key'],
@@ -110,7 +118,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _razorpay.open(options);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to create order.')));
+          String errMsg = 'Failed to create order.';
+          try {
+            final errData = json.decode(response.body);
+            if (errData['message'] != null) {
+              errMsg = errData['message'];
+            }
+          } catch (_) {}
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $errMsg')));
         }
       }
     } catch (e) {
@@ -334,7 +349,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Icon(Icons.lock_clock, size: 60, color: accentColor),
               const SizedBox(height: 20),
               const Text(
-                "Subscription Required",
+                "Active Subscription Required",
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -344,7 +359,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 15),
               const Text(
-                "you are not take any subscription plan, please upgarde your plan to smooth organize all the features & manage all things from here",
+                "To continue managing your organization seamlessly, please activate a subscription plan or try our trial plan.",
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey,
