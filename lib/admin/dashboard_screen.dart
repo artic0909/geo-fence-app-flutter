@@ -371,9 +371,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return GridView.count(
       shrinkWrap: true,
       crossAxisCount: 2,
-      crossAxisSpacing: 15,
-      mainAxisSpacing: 15,
-      childAspectRatio: 1.35,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.5,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         _buildKPICard("Total Staff", _totalEmployees.toString(), Icons.people_alt_outlined, cardColor, accentColor, textColor),
@@ -401,24 +401,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.2)),
                 ),
-                child: Icon(icon, color: accentColor, size: 22),
+                child: Icon(icon, color: accentColor, size: 20),
               ),
-              Icon(Icons.arrow_outward, color: Colors.grey[700], size: 16),
+              Icon(Icons.arrow_outward, color: Colors.grey[800], size: 16),
             ],
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: textColor)),
-              const SizedBox(height: 2),
-              Text(title.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey[500], letterSpacing: 1)),
+              Expanded(
+                child: Text(title.toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey[500], letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+              Text(value, style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: textColor)),
             ],
           ),
         ],
