@@ -266,4 +266,20 @@ class ApiService {
       body: jsonEncode(data),
     );
   }
+
+  // Subscription Endpoints
+  static Future<http.Response> createSubscriptionOrder() async {
+    return await http.post(
+      Uri.parse('$baseUrl/admin/subscription/create-order'),
+      headers: await getHeaders(),
+    );
+  }
+
+  static Future<http.Response> verifySubscriptionPayment(Map<String, dynamic> data) async {
+    return await http.post(
+      Uri.parse('$baseUrl/admin/subscription/verify-payment'),
+      headers: await getHeaders(),
+      body: jsonEncode(data),
+    );
+  }
 }

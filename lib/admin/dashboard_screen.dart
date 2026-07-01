@@ -6,6 +6,8 @@ import 'today_absent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_drawer.dart';
 import '../widgets/admin_loader.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -29,11 +31,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
   dynamic _subscriptionDaysLeft = 0;
   double _subscriptionPercentage = 100.0;
   bool _isExpired = true;
+  
+  late Razorpay _razorpay;
+  int? _pendingPlanId;
 
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _loadDashboardData();
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    if (_pendingPlanId == null) return;
+    try {
+      setState(() => _isLoading = true);
+      final verifyResponse = await ApiService.verifySubscriptionPayment({
+        'razorpay_payment_id': response.paymentId,
+        'razorpay_order_id': response.orderId,
+        'razorpay_signature': response.signature,
+        'plan_id': _pendingPlanId,
+      });
+      if (verifyResponse.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Subscription activated successfully!')));
+          _loadDashboardData();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment verification failed.')));
+        }
+      }
+    } catch (e) {
+      debugPrint('Verify Error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment Failed: ${response.message}')));
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('External Wallet: ${response.walletName}')));
+  }
+
+  Future<void> _startTrialCheckout() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await ApiService.createSubscriptionOrder();
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _pendingPlanId = data['plan_id'];
+        var options = {
+          'key': data['key'],
+          'amount': data['amount'],
+          'name': _orgName.isNotEmpty ? _orgName : 'Company Dashboard',
+          'order_id': data['order_id'],
+          'description': 'Trial Pack Activation',
+          'timeout': 120, // in seconds
+          'prefill': {
+            'contact': '', // could fetch from profile
+            'email': ''
+          }
+        };
+        _razorpay.open(options);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to create order.')));
+        }
+      }
+    } catch (e) {
+      debugPrint('Order Error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadDashboardData() async {
@@ -105,9 +187,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       endDrawer: const AdminDrawer(currentRoute: 'Dashboard'),
-      body: _isLoading
-          ? const AdminLoader()
-          : RefreshIndicator(
+      body: Stack(
+        children: [
+          _isLoading
+              ? const AdminLoader()
+              : RefreshIndicator(
               color: bgDark,
               backgroundColor: goldMain,
               onRefresh: _loadDashboardData,
@@ -211,6 +295,98 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+            if (_isExpired || _subscriptionStatus.toLowerCase() == 'inactive')
+              _buildSubscriptionBlockerOverlay(goldMain),
+        ],
+      ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionBlockerOverlay(Color accentColor) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.black.withValues(alpha: 0.85), // Dark opaque background
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 30),
+          padding: const EdgeInsets.all(30),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: accentColor.withValues(alpha: 0.5), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.2),
+                blurRadius: 30,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_clock, size: 60, color: accentColor),
+              const SizedBox(height: 20),
+              const Text(
+                "Subscription Required",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                "you are not take any subscription plan, please upgarde your plan to smooth organize all the features & manage all things from here",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final url = Uri.parse('http://geofence.sumatrasales.com/login');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text("Go to Website to Upgrade", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 15),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _startTrialCheckout,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: accentColor),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text("Go with Trial Pack", style: TextStyle(color: accentColor, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
