@@ -220,50 +220,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Greeting Section
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(25),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2A2A2A), cardDark],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: goldMain.withValues(alpha: 0.3), width: 1),
-                        boxShadow: [
-                          BoxShadow(color: goldMain.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10)),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Welcome back,", style: TextStyle(fontSize: 14, color: Colors.grey[400], letterSpacing: 1.2)),
-                          const SizedBox(height: 5),
-                          Text(_adminName.toUpperCase(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: goldLight)),
-                          if (_orgName.isNotEmpty) ...[
-                            const SizedBox(height: 5),
-                            Row(
-                              children: [
-                                const Icon(Icons.business, color: goldMain, size: 14),
-                                const SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    _orgName, 
-                                    style: const TextStyle(fontSize: 13, color: goldMain, fontWeight: FontWeight.w600),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 20),
+                    // Unified Greeting & Subscription Card
                     _buildSubscriptionBanner(cardDark, goldMain, goldLight),
                     
                     const SizedBox(height: 35),
@@ -529,22 +486,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accentColor.withValues(alpha: 0.2), width: 1),
+        gradient: LinearGradient(
+          colors: [const Color(0xFF2A2A2A), cardColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5)),
+          BoxShadow(color: accentColor.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Greeting & Status Badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "SUBSCRIPTION",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[500], letterSpacing: 1.5),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Welcome back,", style: TextStyle(fontSize: 14, color: Colors.grey[400], letterSpacing: 1.2)),
+                    const SizedBox(height: 5),
+                    Text(_adminName.toUpperCase(), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textColor)),
+                    if (_orgName.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Icon(Icons.business, color: accentColor, size: 14),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              _orgName, 
+                              style: TextStyle(fontSize: 13, color: accentColor, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -554,6 +540,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 8,
@@ -570,7 +557,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
+          
           const SizedBox(height: 15),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 15),
+          
+          // Subscription Details
+          Text(
+            "SUBSCRIPTION DETAILS",
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[500], letterSpacing: 1.5),
+          ),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -593,7 +590,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           if (!_isExpired && _subscriptionStatus.toLowerCase() == 'active') ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 15),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
