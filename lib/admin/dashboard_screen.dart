@@ -23,6 +23,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _adminName = 'Admin';
   String _orgName = '';
 
+  String _subscriptionStatus = 'Inactive';
+  String _subscriptionExpiresAt = 'N/A';
+  String _currentPlanName = 'Free / Trial';
+  dynamic _subscriptionDaysLeft = 0;
+  double _subscriptionPercentage = 100.0;
+  bool _isExpired = true;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +52,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _totalEmployees = data['total_employees'] ?? 0;
             _todayPresent = data['today_present'] ?? 0;
             _todayAbsent = data['today_absent'] ?? 0;
+            
+            _subscriptionStatus = data['subscription_status'] ?? 'Inactive';
+            _subscriptionExpiresAt = data['subscription_expires_at'] ?? 'N/A';
+            _currentPlanName = data['current_plan_name'] ?? 'Free / Trial';
+            _subscriptionDaysLeft = data['subscription_days_left'] ?? 0;
+            if (data['subscription_percentage'] != null) {
+              _subscriptionPercentage = double.tryParse(data['subscription_percentage'].toString()) ?? 100.0;
+            }
+            _isExpired = data['is_expired'] ?? true;
           });
         }
       }
@@ -143,6 +159,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ],
                       ),
                     ),
+                    
+                    const SizedBox(height: 20),
+                    _buildSubscriptionBanner(cardDark, goldMain, goldLight),
                     
                     const SizedBox(height: 35),
                     Row(
@@ -304,6 +323,101 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+  Widget _buildSubscriptionBanner(Color cardColor, Color accentColor, Color textColor) {
+    bool isActive = _subscriptionStatus.toLowerCase() == 'active';
+    Color statusColor = isActive ? Colors.greenAccent : Colors.redAccent;
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: 0.2), width: 1),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "SUBSCRIPTION",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[500], letterSpacing: 1.5),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _subscriptionStatus.toUpperCase(),
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor, letterSpacing: 1),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Current Plan", style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                  const SizedBox(height: 4),
+                  Text(_currentPlanName, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: accentColor)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text("Expires On", style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                  const SizedBox(height: 4),
+                  Text(_subscriptionExpiresAt, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                ],
+              ),
+            ],
+          ),
+          if (!_isExpired && _subscriptionStatus.toLowerCase() == 'active') ...[
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Progress", style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                Text("$_subscriptionDaysLeft Days Left", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: _subscriptionPercentage / 100,
+                backgroundColor: Colors.white.withValues(alpha: 0.1),
+                color: _subscriptionPercentage > 90 ? Colors.redAccent : (_subscriptionPercentage > 70 ? Colors.orangeAccent : Colors.greenAccent),
+                minHeight: 6,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
