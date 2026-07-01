@@ -31,6 +31,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   dynamic _subscriptionDaysLeft = 0;
   double _subscriptionPercentage = 100.0;
   bool _isExpired = true;
+  String _trialPlanName = 'Trial Pack';
+  String _trialPlanPrice = '0';
   
   late Razorpay _razorpay;
   int? _pendingPlanId;
@@ -143,6 +145,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _subscriptionPercentage = double.tryParse(data['subscription_percentage'].toString()) ?? 100.0;
             }
             _isExpired = data['is_expired'] ?? true;
+            _trialPlanName = data['trial_plan_name']?.toString() ?? 'Trial Pack';
+            _trialPlanPrice = data['trial_plan_price']?.toString() ?? '0';
           });
         }
       }
@@ -381,7 +385,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text("Go with Trial Pack", style: TextStyle(color: accentColor, fontWeight: FontWeight.bold)),
+                  child: Text("Go with $_trialPlanName (₹$_trialPlanPrice)", style: TextStyle(color: accentColor, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
