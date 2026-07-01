@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
-import 'screens/login_screen.dart';
+import 'screens/role_selection_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/history_screen.dart';
 import 'services/background_location_service.dart';
@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
       ),
       home: const SplashScreen(),
       routes: {
-        '/login': (context) => const LoginScreen(),
+        '/login': (context) => const RoleSelectionScreen(),
         '/home': (context) => const HomeScreen(),
         '/history': (context) => const HistoryScreen(),
       },

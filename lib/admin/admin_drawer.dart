@@ -3,7 +3,7 @@ import 'dashboard_screen.dart';
 import 'today_present.dart';
 import 'today_absent.dart';
 import 'settings.dart';
-import '../screens/login_screen.dart';
+import '../screens/role_selection_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminDrawer extends StatelessWidget {
@@ -17,7 +17,7 @@ class AdminDrawer extends StatelessWidget {
     if (context.mounted) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
         (route) => false,
       );
     }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'home_screen.dart';
-import 'login_screen.dart';
-import '../admin/dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'home_screen.dart';
+import 'role_selection_screen.dart';
+import '../admin/dashboard_screen.dart';
 import 'dart:ui';
 
 class PermissionScreen extends StatefulWidget {
@@ -87,7 +87,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
         } else {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            MaterialPageRoute(builder: (context) => const RoleSelectionScreen()),
           );
         }
       }

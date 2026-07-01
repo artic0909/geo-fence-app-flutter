@@ -10,7 +10,8 @@ import 'home_screen.dart';
 import '../admin/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool isCompany;
+  const LoginScreen({super.key, this.isCompany = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -376,13 +377,13 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Row(
+                                      Row(
                                         children: [
-                                          Icon(Icons.location_on, size: 20, color: Color(0xFF1A1A1A)),
-                                          SizedBox(width: 8),
+                                          const Icon(Icons.location_on, size: 20, color: Color(0xFF1A1A1A)),
+                                          const SizedBox(width: 8),
                                           Text(
-                                            "Secure Login",
-                                            style: TextStyle(
+                                            widget.isCompany ? "Company Login" : "Employee Login",
+                                            style: const TextStyle(
                                               fontSize: 22,
                                               fontWeight: FontWeight.bold,
                                               color: Color(0xFF1A1A1A),
@@ -393,8 +394,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                       const SizedBox(height: 25),
                                       _buildTextField(
                                         controller: _emailController,
-                                        label: 'Email or Employee ID',
-                                        icon: Icons.person_outline,
+                                        label: widget.isCompany ? 'Email or Company ID' : 'Email or Employee ID',
+                                        icon: widget.isCompany ? Icons.business : Icons.person_outline,
                                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                                       ),
                                       const SizedBox(height: 20),
@@ -462,10 +463,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                         opacity: _fadeAnimation,
                         child: Column(
                           children: [
-                            Text(
-                              "Building a team? Register your\nOrganization or Company below",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
+                              Text(
+                                widget.isCompany 
+                                    ? "New to Geofence? Register your\nOrganization or Company below"
+                                    : "Ask your Organization to invite you\nor register a new Company below",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
                                 color: Colors.black.withValues(alpha: 0.7),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,

@@ -10,13 +10,13 @@ import '../services/api_service.dart';
 import 'dart:convert';
 import 'dart:ui';
 import 'dart:math' as math;
-import 'login_screen.dart';
 import 'outside_attendance_screen.dart';
 import 'history_screen.dart';
 import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/background_location_service.dart';
+import 'role_selection_screen.dart';
 import '../widgets/permission_dialog.dart';
 import '../widgets/kiosk_countdown_dialog.dart';
 import 'package:kiosk_mode/kiosk_mode.dart';
@@ -819,7 +819,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
-    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const RoleSelectionScreen()));
   }
 }
 

@@ -3,8 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
-import 'login_screen.dart';
 import 'permission_screen.dart';
+import 'role_selection_screen.dart';
 import '../admin/dashboard_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -93,7 +93,7 @@ class _SplashScreenState extends State<SplashScreen>
         _fadeAndNavigate(const HomeScreen());
       }
     } else {
-      _fadeAndNavigate(const LoginScreen());
+      _fadeAndNavigate(const RoleSelectionScreen());
     }
   }
 
