@@ -282,4 +282,11 @@ class ApiService {
       body: jsonEncode(data),
     );
   }
+
+  static Future<http.Response> getTransactions() async {
+    return await http.get(
+      Uri.parse('$baseUrl/admin/transactions'),
+      headers: await getHeaders(),
+    );
+  }
 }

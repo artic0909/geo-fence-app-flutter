@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'today_present.dart';
 import 'today_absent.dart';
+import 'transactions.dart';
 import 'settings.dart';
 import '../screens/role_selection_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -128,6 +129,19 @@ class AdminDrawer extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       child: Divider(color: Colors.grey[800]),
+                    ),
+                    _buildDrawerItem(
+                      context: context,
+                      title: 'TRANSACTIONS',
+                      icon: Icons.receipt_long_outlined,
+                      routeName: 'Transactions',
+                      onTap: () {
+                        if (currentRoute != 'Transactions') {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminTransactionsScreen()));
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
                     ),
                     _buildDrawerItem(
                       context: context,
