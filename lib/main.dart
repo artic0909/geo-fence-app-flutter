@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Geofence Smart Attendance',
+      title: 'Smart Geofence Attendance',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         useMaterial3: true,
