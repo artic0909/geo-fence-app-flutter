@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../services/api_service.dart';
 import 'admin_drawer.dart';
 import '../widgets/admin_loader.dart';
-import 'dashboard_screen.dart';
+
 
 class AdminTransactionsScreen extends StatefulWidget {
   const AdminTransactionsScreen({super.key});
@@ -50,13 +50,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
     const Color goldMain = Color(0xFFD4AF37);
     const Color goldLight = Color(0xFFF9F1CC);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
-      },
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: bgDark,
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -64,12 +58,6 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
           backgroundColor: bgDark,
           elevation: 0,
           iconTheme: const IconThemeData(color: goldMain),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: goldMain, size: 20),
-            onPressed: () {
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
-            },
-          ),
           actions: [
             Builder(
               builder: (context) => IconButton(
@@ -97,15 +85,14 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
                         },
                       ),
               ),
-      ),
-    );
+      );
   }
 
   Widget _buildEmptyState(Color accentColor) {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 100),
       children: [
-        Icon(Icons.receipt_long_outlined, size: 80, color: accentColor.withOpacity(0.3)),
+        Icon(Icons.receipt_long_outlined, size: 80, color: accentColor.withValues(alpha: 0.3)),
         const SizedBox(height: 20),
         const Text(
           "NO TRANSACTIONS",
@@ -139,7 +126,7 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey[850]!, width: 1),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
       child: Column(
@@ -171,9 +158,9 @@ class _AdminTransactionsScreenState extends State<AdminTransactionsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: statusColor.withOpacity(0.5)),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

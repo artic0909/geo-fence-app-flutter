@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../widgets/custom_alert_dialog.dart';
 import 'home_screen.dart';
-import '../admin/dashboard_screen.dart';
+import '../admin/admin_main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool isCompany;
@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   void _navigateToDashboard() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      MaterialPageRoute(builder: (_) => const AdminMainScreen()),
     );
   }
 

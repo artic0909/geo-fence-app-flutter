@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 import 'permission_screen.dart';
 import 'role_selection_screen.dart';
-import '../admin/dashboard_screen.dart';
+import '../admin/admin_main_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -88,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (token != null) {
       if (isAdmin) {
-        _fadeAndNavigate(const DashboardScreen());
+        _fadeAndNavigate(const AdminMainScreen());
       } else {
         _fadeAndNavigate(const HomeScreen());
       }

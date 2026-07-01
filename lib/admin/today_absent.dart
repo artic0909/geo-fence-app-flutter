@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'admin_drawer.dart';
 import '../widgets/admin_loader.dart';
-import 'dashboard_screen.dart';
+
 
 class TodayAbsentScreen extends StatefulWidget {
   const TodayAbsentScreen({super.key});
@@ -68,13 +68,7 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
     const Color goldMain = Color(0xFFD4AF37);
     const Color goldLight = Color(0xFFF9F1CC);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
-      },
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: bgDark,
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -184,7 +178,6 @@ class _TodayAbsentScreenState extends State<TodayAbsentScreen> {
                     );
                   },
                 ),
-      ),
     );
   }
 }

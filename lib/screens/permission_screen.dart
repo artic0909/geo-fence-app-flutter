@@ -3,7 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 import 'role_selection_screen.dart';
-import '../admin/dashboard_screen.dart';
+import '../admin/admin_main_screen.dart';
 import 'dart:ui';
 
 class PermissionScreen extends StatefulWidget {
@@ -76,7 +76,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
           if (isAdmin) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+              MaterialPageRoute(builder: (context) => const AdminMainScreen()),
             );
           } else {
             Navigator.pushReplacement(

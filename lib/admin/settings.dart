@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../services/api_service.dart';
 import 'admin_drawer.dart';
-import 'dashboard_screen.dart';
-import '../widgets/admin_loader.dart';
 import '../widgets/admin_alert_dialog.dart';
+import '../widgets/admin_loader.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -140,19 +139,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     const Color cardDark = Color(0xFF1E1E1E);
     const Color goldMain = Color(0xFFD4AF37);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
-      },
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: bgDark,
         appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: goldMain),
-            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen())),
-          ),
+          automaticallyImplyLeading: false,
           title: const Text('ACCOUNT SETTINGS', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 16)),
           backgroundColor: bgDark,
           elevation: 0,
@@ -299,11 +289,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 50),
+                const SizedBox(height: 50),
               ],
             ),
           ),
         ),
-      ),
     );
   }
 

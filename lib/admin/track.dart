@@ -6,7 +6,7 @@ import 'dart:convert';
 import '../services/api_service.dart';
 import 'admin_drawer.dart';
 import '../widgets/admin_loader.dart';
-import 'dashboard_screen.dart';
+
 
 class TrackScreen extends StatefulWidget {
   final int employeeId;
@@ -92,15 +92,15 @@ class _TrackScreenState extends State<TrackScreen> {
     const Color goldMain = Color(0xFFD4AF37);
     const Color goldLight = Color(0xFFF9F1CC);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
-      },
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: bgDark,
         appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: goldMain, size: 20),
+            onPressed: () {
+              Navigator.pop(context);
+            },
+          ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -282,7 +282,6 @@ class _TrackScreenState extends State<TrackScreen> {
             child: const Icon(Icons.my_location),
           ),
         ),
-      ),
-    );
+      );
   }
 }
