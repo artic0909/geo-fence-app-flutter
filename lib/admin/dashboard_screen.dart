@@ -271,7 +271,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            if (_isExpired || _subscriptionStatus.toLowerCase() == 'inactive')
+            if (!_isLoading && (_isExpired || _subscriptionStatus.toLowerCase() == 'inactive'))
               _buildSubscriptionBlockerOverlay(goldMain),
         ],
       ),
