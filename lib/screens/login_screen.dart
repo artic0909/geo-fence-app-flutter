@@ -113,14 +113,15 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   void _navigateToDashboard() {
-    Navigator.pushReplacement(
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const AdminMainScreen()),
+      (route) => false,
     );
   }
 
   void _navigateToHomeWithFlagTransition() {
-    Navigator.pushReplacement(
+    Navigator.pushAndRemoveUntil(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
@@ -220,6 +221,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           );
         },
       ),
+      (route) => false,
     );
   }
 

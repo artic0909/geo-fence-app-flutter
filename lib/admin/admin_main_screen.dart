@@ -61,10 +61,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       },
       child: Scaffold(
         backgroundColor: bgDark,
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _screens,
-        ),
+      body: _screens[_currentIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: cardDark,
