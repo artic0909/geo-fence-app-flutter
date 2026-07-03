@@ -1,4 +1,4 @@
-package com.sumatrasales.sitesyncatt
+package smart.geofence.attendance
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 
