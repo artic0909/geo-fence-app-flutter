@@ -1,4 +1,4 @@
-package com.example.palgeo_app
+package com.sumatrasales.sitesyncatt
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 
