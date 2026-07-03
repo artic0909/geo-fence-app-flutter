@@ -5,9 +5,10 @@ import 'screens/home_screen.dart';
 import 'screens/history_screen.dart';
 import 'services/background_location_service.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await BackgroundLocationService.initializeService();
+  // Do not await to prevent blocking runApp when OS restarts app after permission change
+  BackgroundLocationService.initializeService().catchError((e) => debugPrint(e.toString()));
   runApp(const MyApp());
 }
 
