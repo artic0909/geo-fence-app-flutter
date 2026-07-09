@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'admin_drawer.dart';
 import '../widgets/admin_alert_dialog.dart';
@@ -115,6 +116,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       try {
         final response = await ApiService.updateAdminSettings(data);
         if (response.statusCode == 200) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_name', _nameController.text);
+          await prefs.setString('org_name', _businessNameController.text);
+
           if (!mounted) return;
           AdminAlertDialog.show(context, title: 'Success', message: 'Settings saved successfully!', isSuccess: true);
           _newPasswordController.clear();
