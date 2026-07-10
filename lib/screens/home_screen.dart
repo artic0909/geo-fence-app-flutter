@@ -12,6 +12,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'outside_attendance_screen.dart';
 import 'history_screen.dart';
+import '../widgets/battery_tutorial_dialog.dart';
 import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
 import 'package:geolocator/geolocator.dart';
@@ -427,7 +428,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           AttendanceSuccessDialog.show(
             context, 
             title: "Check-in Successful", 
-            message: "Your attendance has been marked. Have a productive day ahead!"
+            message: "Your attendance has been marked. Have a productive day ahead!",
+            onDismiss: () {
+              if (mounted) {
+                BatteryTutorialDialog.show(context);
+              }
+            }
           );
         }
       } else {

@@ -14,6 +14,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'history_screen.dart';
 import 'home_screen.dart';
+import '../widgets/battery_tutorial_dialog.dart';
 import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
 import '../widgets/permission_dialog.dart';
@@ -383,8 +384,13 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         if (mounted) {
           AttendanceSuccessDialog.show(
             context, 
-            title: "Outside Check-in", 
-            message: "Your off-site duty session has started successfully."
+            title: "Check-in Successful", 
+            message: "Your remote attendance has been securely marked.",
+            onDismiss: () {
+              if (mounted) {
+                BatteryTutorialDialog.show(context);
+              }
+            }
           );
         }
       } else {
