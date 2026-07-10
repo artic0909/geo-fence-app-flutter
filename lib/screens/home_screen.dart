@@ -211,10 +211,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           _userName = data['employee_name'] ?? _userName;
           _orgName = data['business_name'] ?? data['admin_name'] ?? _orgName;
           _assignedGeofences = data['assigned_geofences'] ?? [];
+          _isCheckedIn = status['is_checked_in'] ?? false;
+          
+          if (_isCheckedIn && status['checked_in_geofence_name'] != null) {
+            String checkedInName = status['checked_in_geofence_name'];
+            _selectedGeofence = _assignedGeofences.firstWhere(
+              (g) => g['name'] == checkedInName,
+              orElse: () => null,
+            );
+          }
+
           if (_selectedGeofence == null && _assignedGeofences.isNotEmpty) {
             _selectedGeofence = _assignedGeofences[0];
           }
-          _isCheckedIn = status['is_checked_in'] ?? false;
+          
           _isSubscriptionActive = data['admin_subscription_status'] != 'inactive';
           
           if (data['phone_restriction'] != null) {
