@@ -559,8 +559,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   Widget build(BuildContext context) {
     const Color saffron = Color(0xFFFF9933);
     const Color green = Color(0xFF138808);
+    final Size screenSize = MediaQuery.of(context).size;
+    final bool isTinyScreen = screenSize.height < 400 || screenSize.width < 300;
     
-    if (_isPipMode) {
+    if (_isPipMode || isTinyScreen) {
       return Scaffold(
         body: Stack(
           children: [

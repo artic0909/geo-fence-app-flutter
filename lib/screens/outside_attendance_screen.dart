@@ -530,8 +530,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     const Color green = Color(0xFF138808);
     final String today = DateTime.now().toIso8601String().split('T')[0];
     final bool isCompleted = !_isOutsideCheckedIn && _lastActionDate == today;
+    final Size screenSize = MediaQuery.of(context).size;
+    final bool isTinyScreen = screenSize.height < 400 || screenSize.width < 300;
 
-    if (_isPipMode) {
+    if (_isPipMode || isTinyScreen) {
       return Scaffold(
         body: Stack(
           children: [
