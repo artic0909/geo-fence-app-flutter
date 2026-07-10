@@ -51,6 +51,7 @@ dependencies:
   device_info_plus: ^12.4.0
   kiosk_mode: ^0.8.0+1
   razorpay_flutter: ^1.4.5
+  phone_state: ^3.0.1
 
 flutter_launcher_icons:
   android: "ic_launcher"

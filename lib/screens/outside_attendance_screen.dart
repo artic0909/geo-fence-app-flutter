@@ -19,6 +19,8 @@ import '../widgets/custom_alert_dialog.dart';
 import '../widgets/permission_dialog.dart';
 import '../widgets/kiosk_countdown_dialog.dart';
 import 'package:kiosk_mode/kiosk_mode.dart';
+import 'package:phone_state/phone_state.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class OutsideAttendanceScreen extends StatefulWidget {
   const OutsideAttendanceScreen({super.key});
@@ -47,6 +49,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   StreamSubscription<KioskMode>? _kioskSubscription;
   DateTime? _kioskRequestedTime;
   Timer? _kioskCheckTimer;
+  StreamSubscription<PhoneState>? _phoneStateSubscription;
+  bool _isHandlingCall = false;
 
   @override
   void initState() {
@@ -65,7 +69,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _initializeApp();
 
     _kioskSubscription = watchKioskMode().listen((mode) async {
-      if (mode == KioskMode.disabled && _isOutsideCheckedIn) {
+      if (mode == KioskMode.disabled && _isOutsideCheckedIn && !_isHandlingCall) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         if (isRestricted && mounted && _currentLocation != null && !_isChecking) {
@@ -80,7 +84,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         
-        if (isRestricted && _currentLocation != null && !_isChecking) {
+        if (isRestricted && _currentLocation != null && !_isChecking && !_isHandlingCall) {
           final mode = await getKioskMode();
           if (mode == KioskMode.disabled) {
             // 15 seconds grace period to read and accept the prompt
@@ -92,6 +96,22 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           } else {
             // Reset requested time once successfully enabled
             _kioskRequestedTime = null;
+          }
+        }
+      }
+    });
+
+    _phoneStateSubscription = PhoneState.stream.listen((event) async {
+      if (event.status == PhoneStateStatus.CALL_INCOMING) {
+        _isHandlingCall = true;
+        await stopKioskMode();
+      } else if (event.status == PhoneStateStatus.CALL_ENDED) {
+        _isHandlingCall = false;
+        if (_isOutsideCheckedIn) {
+          final prefs = await SharedPreferences.getInstance();
+          final isRestricted = prefs.getBool('phone_restriction') ?? false;
+          if (isRestricted) {
+            await startKioskMode();
           }
         }
       }
@@ -117,6 +137,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _refreshController.dispose();
     _trackingTimer?.cancel();
     _kioskSubscription?.cancel();
+    _phoneStateSubscription?.cancel();
     _kioskCheckTimer?.cancel();
     _reasonController.dispose();
     super.dispose();
@@ -285,6 +306,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       
       final prefs = await SharedPreferences.getInstance();
       final isRestricted = prefs.getBool('phone_restriction') ?? false;
+
+      if (isRestricted) {
+        await Permission.phone.request();
+      }
 
       // 1. Enforce Kiosk Mode BEFORE API Call
       if (isRestricted && mounted) {

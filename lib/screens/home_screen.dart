@@ -20,6 +20,8 @@ import 'role_selection_screen.dart';
 import '../widgets/permission_dialog.dart';
 import '../widgets/kiosk_countdown_dialog.dart';
 import 'package:kiosk_mode/kiosk_mode.dart';
+import 'package:phone_state/phone_state.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,6 +53,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isMapRefreshing = false;
   Timer? _trackingTimer;
   StreamSubscription<KioskMode>? _kioskSubscription;
+  StreamSubscription<PhoneState>? _phoneStateSubscription;
+  bool _isHandlingCall = false;
 
   @override
   void initState() {
@@ -69,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _initializeApp();
 
     _kioskSubscription = watchKioskMode().listen((mode) async {
-      if (mode == KioskMode.disabled && _isCheckedIn) {
+      if (mode == KioskMode.disabled && _isCheckedIn && !_isHandlingCall) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         if (isRestricted && mounted && _currentLocation != null && !_isChecking) {
@@ -90,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         
-        if (isRestricted && _currentLocation != null && !_isChecking) {
+        if (isRestricted && _currentLocation != null && !_isChecking && !_isHandlingCall) {
           final mode = await getKioskMode();
           if (mode == KioskMode.disabled) {
             // 15 seconds grace period to read and accept the prompt
@@ -108,6 +112,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           } else {
             // Reset requested time once successfully enabled
             _kioskRequestedTime = null;
+          }
+        }
+      }
+    });
+
+    _phoneStateSubscription = PhoneState.stream.listen((event) async {
+      if (event.status == PhoneStateStatus.CALL_INCOMING) {
+        _isHandlingCall = true;
+        await stopKioskMode();
+      } else if (event.status == PhoneStateStatus.CALL_ENDED) {
+        _isHandlingCall = false;
+        if (_isCheckedIn) {
+          final prefs = await SharedPreferences.getInstance();
+          final isRestricted = prefs.getBool('phone_restriction') ?? false;
+          if (isRestricted) {
+            await startKioskMode();
           }
         }
       }
@@ -134,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _refreshController.dispose();
     _trackingTimer?.cancel();
     _kioskSubscription?.cancel();
+    _phoneStateSubscription?.cancel();
     _kioskCheckTimer?.cancel();
     super.dispose();
   }
@@ -318,6 +339,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
       final prefs = await SharedPreferences.getInstance();
       final isRestricted = prefs.getBool('phone_restriction') ?? false;
+
+      if (isRestricted) {
+        await Permission.phone.request();
+      }
 
       // 1. Enforce Kiosk Mode BEFORE API Call
       if (isRestricted && mounted) {
