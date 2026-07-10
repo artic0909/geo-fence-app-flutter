@@ -12,6 +12,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'outside_attendance_screen.dart';
 import 'history_screen.dart';
+import 'package:flutter/services.dart';
 import '../widgets/battery_tutorial_dialog.dart';
 import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
@@ -56,12 +57,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   StreamSubscription<KioskMode>? _kioskSubscription;
   StreamSubscription<PhoneState>? _phoneStateSubscription;
   bool _isHandlingCall = false;
+  bool _isPipMode = false;
+
+  static const MethodChannel _pipChannel = MethodChannel('smart.geofence/pip');
+
+  void _updatePipState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isRestricted = prefs.getBool('phone_restriction') ?? false;
+    bool allowed = _isCheckedIn && !isRestricted;
+    try {
+      await _pipChannel.invokeMethod('setPipAllowed', {'allowed': allowed});
+    } catch (e) {
+      debugPrint("PIP Error: $e");
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
+    _pipChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onPipChanged') {
+        if (mounted) {
+          setState(() {
+            _isPipMode = call.arguments;
+          });
+        }
+      }
+    });
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -252,6 +277,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         // Sync back to local storage
         await prefs.setBool('is_checked_in', _isCheckedIn);
         await prefs.setString('last_action_date', _lastActionDate);
+        _updatePipState();
 
         // ROUTING LOGIC: If checked-in via Outside Mode, force the Outside Screen
         if (status['is_outside'] == true && _isCheckedIn && mounted) {
@@ -423,6 +449,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           _lastActionDate = today;
           _status = 'Check-in Confirmed!';
         });
+        _updatePipState();
 
         if (mounted) {
           AttendanceSuccessDialog.show(
@@ -493,6 +520,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           _lastActionDate = today;
           _status = 'Check-out Logged!';
         });
+        _updatePipState();
 
         if (mounted) {
           if (isAutoTrap) {
@@ -531,6 +559,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   Widget build(BuildContext context) {
     const Color saffron = Color(0xFFFF9933);
     const Color green = Color(0xFF138808);
+    
+    if (_isPipMode) {
+      return Scaffold(
+        body: Stack(
+          children: [
+            _buildSatelliteMap(saffron),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: green.withValues(alpha: 0.9),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: const Text(
+                  "Tracking Active",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, decoration: TextDecoration.none),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     
     if (_isScreenLoading) {
       return Scaffold(
@@ -628,7 +680,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                 ),
               ),
               IconButton(icon: const Icon(Icons.history_toggle_off_rounded), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()))),
-              IconButton(icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent), onPressed: _logout),
+              if (!_isCheckedIn)
+                IconButton(icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent), onPressed: _logout),
             ],
           ),
         ),

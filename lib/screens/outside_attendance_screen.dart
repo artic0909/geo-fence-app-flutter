@@ -14,6 +14,7 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'history_screen.dart';
 import 'home_screen.dart';
+import 'package:flutter/services.dart';
 import '../widgets/battery_tutorial_dialog.dart';
 import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
@@ -52,12 +53,36 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   Timer? _kioskCheckTimer;
   StreamSubscription<PhoneState>? _phoneStateSubscription;
   bool _isHandlingCall = false;
+  bool _isPipMode = false;
+
+  static const MethodChannel _pipChannel = MethodChannel('smart.geofence/pip');
+
+  void _updatePipState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isRestricted = prefs.getBool('phone_restriction') ?? false;
+    bool allowed = _isOutsideCheckedIn && !isRestricted;
+    try {
+      await _pipChannel.invokeMethod('setPipAllowed', {'allowed': allowed});
+    } catch (e) {
+      debugPrint("PIP Error: $e");
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
+    _pipChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onPipChanged') {
+        if (mounted) {
+          setState(() {
+            _isPipMode = call.arguments;
+          });
+        }
+      }
+    });
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -224,6 +249,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           }
         });
         await prefs.setBool('is_outside_checked_in', _isOutsideCheckedIn);
+        _updatePipState();
       }
     } catch (e) {
       debugPrint('Sync error in Outside screen: $e');
@@ -447,6 +473,11 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_outside_checked_in', false);
         
+        setState(() {
+          _isOutsideCheckedIn = false;
+        });
+        _updatePipState();
+
         // Ensure Kiosk Mode is stopped on Check-out
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         if (isRestricted) {
@@ -497,6 +528,32 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   Widget build(BuildContext context) {
     const Color saffron = Color(0xFFFF9933);
     const Color green = Color(0xFF138808);
+    final String today = DateTime.now().toIso8601String().split('T')[0];
+    final bool isCompleted = !_isOutsideCheckedIn && _lastActionDate == today;
+
+    if (_isPipMode) {
+      return Scaffold(
+        body: Stack(
+          children: [
+            _buildSatelliteMap(saffron),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: green.withValues(alpha: 0.9),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: const Text(
+                  "Tracking Active",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, decoration: TextDecoration.none),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     if (_isScreenLoading) {
       return Scaffold(
@@ -544,8 +601,6 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       );
     }
 
-    final String today = DateTime.now().toIso8601String().split('T')[0];
-    final bool isCompleted = !_isOutsideCheckedIn && _lastActionDate == today;
 
     return PopScope(
       canPop: !_isOutsideCheckedIn && !isCompleted,
