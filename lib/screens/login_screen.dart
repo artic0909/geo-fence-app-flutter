@@ -226,10 +226,19 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Future<void> _launchURL() async {
-    final Uri url = Uri.parse('http://geofence.sumatrasales.com/register');
+    final Uri url = Uri.parse('https://projectattendance.com/');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
         CustomAlertDialog.show(context, title: 'Link Failed', message: 'Could not launch registration link', type: AlertType.warning);
+      }
+    }
+  }
+
+  Future<void> _launchForgotPasswordURL() async {
+    final Uri url = Uri.parse('https://projectattendance.com/password/reset');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        CustomAlertDialog.show(context, title: 'Link Failed', message: 'Could not launch link', type: AlertType.warning);
       }
     }
   }
@@ -415,7 +424,23 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                         ),
                                         validator: (v) => (v == null || v.length < 4) ? 'Password too short' : null,
                                       ),
-                                      const SizedBox(height: 30),
+                                      if (widget.isCompany)
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton(
+                                            onPressed: _launchForgotPasswordURL,
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                                              foregroundColor: const Color(0xFF1A1A1A),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                            child: const Text('Forgot Password?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                          ),
+                                        )
+                                      else
+                                        const SizedBox(height: 30),
+                                      if (widget.isCompany) const SizedBox(height: 20),
                                       
                                       SizedBox(
                                         width: double.infinity,
