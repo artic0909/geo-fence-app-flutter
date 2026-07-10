@@ -30,7 +30,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isScreenLoading = true;
   bool _isChecking = false;
   bool _isCheckedIn = false;
@@ -59,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     
     _pulseController = AnimationController(
       vsync: this,
@@ -127,7 +128,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           final prefs = await SharedPreferences.getInstance();
           final isRestricted = prefs.getBool('phone_restriction') ?? false;
           if (isRestricted) {
-            await startKioskMode();
+            await Future.delayed(const Duration(milliseconds: 1500));
+            if (!_isHandlingCall) {
+              await startKioskMode();
+            }
           }
         }
       }
@@ -150,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pulseController.dispose();
     _refreshController.dispose();
     _trackingTimer?.cancel();
@@ -157,6 +162,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _phoneStateSubscription?.cancel();
     _kioskCheckTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      if (_isCheckedIn && !_isHandlingCall) {
+        final prefs = await SharedPreferences.getInstance();
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted) {
+          final mode = await getKioskMode();
+          if (mode == KioskMode.disabled) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (!_isHandlingCall) {
+              await startKioskMode();
+            }
+          }
+        }
+      }
+    }
   }
 
   Future<void> _loadUserData() async {

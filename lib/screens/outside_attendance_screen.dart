@@ -29,7 +29,7 @@ class OutsideAttendanceScreen extends StatefulWidget {
   State<OutsideAttendanceScreen> createState() => _OutsideAttendanceScreenState();
 }
 
-class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with TickerProviderStateMixin {
+class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isScreenLoading = true;
   bool _isChecking = false;
   bool _isSubscriptionActive = true;
@@ -55,6 +55,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     
     _pulseController = AnimationController(
       vsync: this,
@@ -111,7 +112,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           final prefs = await SharedPreferences.getInstance();
           final isRestricted = prefs.getBool('phone_restriction') ?? false;
           if (isRestricted) {
-            await startKioskMode();
+            await Future.delayed(const Duration(milliseconds: 1500));
+            if (!_isHandlingCall) {
+              await startKioskMode();
+            }
           }
         }
       }
@@ -133,6 +137,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pulseController.dispose();
     _refreshController.dispose();
     _trackingTimer?.cancel();
@@ -141,6 +146,26 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _kioskCheckTimer?.cancel();
     _reasonController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      if (_isOutsideCheckedIn && !_isHandlingCall) {
+        final prefs = await SharedPreferences.getInstance();
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted) {
+          final mode = await getKioskMode();
+          if (mode == KioskMode.disabled) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (!_isHandlingCall) {
+              await startKioskMode();
+            }
+          }
+        }
+      }
+    }
   }
 
   void _startTracking() {
