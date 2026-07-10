@@ -130,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           if (isRestricted) {
             await Future.delayed(const Duration(milliseconds: 1500));
             if (!_isHandlingCall) {
+              _kioskRequestedTime ??= DateTime.now();
               await startKioskMode();
             }
           }
@@ -176,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           if (mode == KioskMode.disabled) {
             await Future.delayed(const Duration(milliseconds: 500));
             if (!_isHandlingCall) {
+              _kioskRequestedTime ??= DateTime.now();
               await startKioskMode();
             }
           }

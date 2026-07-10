@@ -114,6 +114,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           if (isRestricted) {
             await Future.delayed(const Duration(milliseconds: 1500));
             if (!_isHandlingCall) {
+              _kioskRequestedTime ??= DateTime.now();
               await startKioskMode();
             }
           }
@@ -160,6 +161,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           if (mode == KioskMode.disabled) {
             await Future.delayed(const Duration(milliseconds: 500));
             if (!_isHandlingCall) {
+              _kioskRequestedTime ??= DateTime.now();
               await startKioskMode();
             }
           }
