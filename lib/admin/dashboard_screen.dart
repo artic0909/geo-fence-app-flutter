@@ -33,6 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isExpired = true;
   String _trialPlanName = 'Trial Pack';
   String _trialPlanPrice = '0';
+  bool _hasClaimedTrial = false;
   
   late Razorpay _razorpay;
   int? _pendingPlanId;
@@ -45,6 +46,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _loadDashboardData();
+  }
+
+  void _showCustomAlert(String message, {bool isSuccess = false}) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(isSuccess ? Icons.check_circle : Icons.error, color: isSuccess ? Colors.green : Colors.red),
+            const SizedBox(width: 8),
+            Text(isSuccess ? 'Success' : 'Error', style: const TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: Text(message, style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK', style: TextStyle(color: Colors.amber)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -64,13 +90,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'plan_id': _pendingPlanId,
       });
       if (verifyResponse.statusCode == 200) {
+        final data = json.decode(verifyResponse.body);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Subscription activated successfully!')));
+          _showCustomAlert('Subscription activated successfully!', isSuccess: true);
           _loadDashboardData();
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment verification failed.')));
+          _showCustomAlert('Payment verification failed.');
         }
       }
     } catch (e) {
@@ -81,11 +108,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment Failed: ${response.message}')));
+    _showCustomAlert('Payment Failed: ${response.message}');
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('External Wallet: ${response.walletName}')));
+    _showCustomAlert('External Wallet: ${response.walletName}');
   }
 
   Future<void> _startTrialCheckout() async {
@@ -96,7 +123,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final data = json.decode(response.body);
         if (data['is_free'] == true) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'] ?? 'Free trial activated!')));
+            _showCustomAlert(data['message'] ?? 'Free trial activated!', isSuccess: true);
             _loadDashboardData();
           }
           return;
@@ -125,7 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               errMsg = errData['message'];
             }
           } catch (_) {}
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $errMsg')));
+          _showCustomAlert(errMsg);
         }
       }
     } catch (e) {
@@ -160,6 +187,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _subscriptionPercentage = double.tryParse(data['subscription_percentage'].toString()) ?? 100.0;
             }
             _isExpired = data['is_expired'] ?? true;
+            _hasClaimedTrial = data['has_claimed_trial'] ?? false;
             _trialPlanName = data['trial_plan_name']?.toString() ?? 'Trial Pack';
             _trialPlanPrice = data['trial_plan_price']?.toString() ?? '0';
           });
@@ -346,20 +374,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               const SizedBox(height: 15),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _startTrialCheckout,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: accentColor),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              if (!_hasClaimedTrial)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _startTrialCheckout,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: accentColor),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
+                    child: Text("Go with $_trialPlanName (₹$_trialPlanPrice)", style: TextStyle(color: accentColor, fontWeight: FontWeight.bold)),
                   ),
-                  child: Text("Go with $_trialPlanName (₹$_trialPlanPrice)", style: TextStyle(color: accentColor, fontWeight: FontWeight.bold)),
                 ),
-              ),
             ],
           ),
         ),
