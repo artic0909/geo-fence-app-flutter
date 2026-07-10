@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isScreenLoading = true;
   bool _isChecking = false;
   bool _isCheckedIn = false;
+  bool _isSubscriptionActive = true;
   
   DateTime? _kioskRequestedTime;
   Timer? _kioskCheckTimer;
@@ -166,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             _selectedGeofence = _assignedGeofences[0];
           }
           _isCheckedIn = status['is_checked_in'] ?? false;
+          _isSubscriptionActive = data['admin_subscription_status'] != 'inactive';
           
           if (data['phone_restriction'] != null) {
             prefs.setBool('phone_restriction', data['phone_restriction']);
@@ -689,7 +691,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildAttendanceButton(Color green, bool isCompleted) {
     return GestureDetector(
-      onTap: (_isChecking || isCompleted) ? null : _toggleAttendance,
+      onTap: (!_isSubscriptionActive || _isChecking || isCompleted) ? null : _toggleAttendance,
       child: Container(
         width: 200, height: 200,
         decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.2), border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2)),
@@ -697,7 +699,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              if (!isCompleted)
+              if (!isCompleted && _isSubscriptionActive)
                 AnimatedBuilder(
                   animation: _pulseController,
                   builder: (context, child) => Container(
@@ -712,20 +714,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
-                    colors: isCompleted 
+                    colors: (!_isSubscriptionActive || isCompleted) 
                         ? [Colors.grey.shade400, Colors.grey.shade600]
                         : (_isCheckedIn ? [const Color(0xFFFF5252), const Color(0xFFD32F2F)] : [const Color(0xFF66BB6A), const Color(0xFF388E3C)]),
                   ),
-                  boxShadow: [BoxShadow(color: (isCompleted ? Colors.grey : (_isCheckedIn ? Colors.red : green)).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+                  boxShadow: [BoxShadow(color: ((!_isSubscriptionActive || isCompleted) ? Colors.grey : (_isCheckedIn ? Colors.red : green)).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
                 child: _isChecking
                     ? const Center(child: CircularProgressIndicator(color: Colors.white))
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(isCompleted ? Icons.check_circle_rounded : (_isCheckedIn ? Icons.logout_rounded : Icons.fingerprint_rounded), color: Colors.white, size: 50),
+                          Icon(!_isSubscriptionActive ? Icons.block_flipped : (isCompleted ? Icons.check_circle_rounded : (_isCheckedIn ? Icons.logout_rounded : Icons.fingerprint_rounded)), color: Colors.white, size: 50),
                           const SizedBox(height: 10),
-                          Text(isCompleted ? "COMPLETED" : (_isCheckedIn ? "CHECK OUT" : "MARK PRESENT"), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                          Text(!_isSubscriptionActive ? "PLAN EXPIRED" : (isCompleted ? "COMPLETED" : (_isCheckedIn ? "CHECK OUT" : "MARK PRESENT")), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
                         ],
                       ),
               ),

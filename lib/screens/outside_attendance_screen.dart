@@ -30,6 +30,7 @@ class OutsideAttendanceScreen extends StatefulWidget {
 class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with TickerProviderStateMixin {
   bool _isScreenLoading = true;
   bool _isChecking = false;
+  bool _isSubscriptionActive = true;
   bool _isOutsideCheckedIn = false;
   String _lastActionDate = '';
   String _status = 'Ready for Outside Action';
@@ -159,6 +160,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         
         setState(() {
           _isOutsideCheckedIn = status['is_outside'] ?? false;
+          _isSubscriptionActive = data['admin_subscription_status'] != 'inactive';
           
           if (status['is_completed'] == true) {
             _lastActionDate = today;
@@ -702,7 +704,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
   Widget _buildAttendanceButton(Color orange, bool isCompleted) {
     return GestureDetector(
-      onTap: (_isChecking || isCompleted) ? null : _toggleOutsideAttendance,
+      onTap: (!_isSubscriptionActive || _isChecking || isCompleted) ? null : _toggleOutsideAttendance,
       child: Container(
         width: 180, height: 180,
         decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.2), border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2)),
@@ -710,7 +712,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           child: Stack(
             alignment: Alignment.center,
             children: [
-              if (!isCompleted)
+              if (!isCompleted && _isSubscriptionActive)
                 AnimatedBuilder(
                   animation: _pulseController,
                   builder: (context, child) => Container(
@@ -725,20 +727,20 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     begin: Alignment.topLeft, end: Alignment.bottomRight, 
-                    colors: isCompleted 
+                    colors: (!_isSubscriptionActive || isCompleted) 
                         ? [Colors.grey.shade400, Colors.grey.shade600]
                         : (_isOutsideCheckedIn ? [const Color(0xFFFF5722), const Color(0xFFE64A19)] : [const Color(0xFFFFB74D), const Color(0xFFF57C00)])
                   ),
-                  boxShadow: [BoxShadow(color: (isCompleted ? Colors.grey : (_isOutsideCheckedIn ? Colors.deepOrange : orange)).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
+                  boxShadow: [BoxShadow(color: ((!_isSubscriptionActive || isCompleted) ? Colors.grey : (_isOutsideCheckedIn ? Colors.deepOrange : orange)).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10))],
                 ),
                 child: _isChecking 
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(isCompleted ? Icons.check_circle_rounded : (_isOutsideCheckedIn ? Icons.exit_to_app_rounded : Icons.add_location_alt_rounded), color: Colors.white, size: 40),
+                        Icon(!_isSubscriptionActive ? Icons.block_flipped : (isCompleted ? Icons.check_circle_rounded : (_isOutsideCheckedIn ? Icons.exit_to_app_rounded : Icons.add_location_alt_rounded)), color: Colors.white, size: 40),
                         const SizedBox(height: 8),
-                        Text(isCompleted ? "COMPLETED" : (_isOutsideCheckedIn ? "FINISH" : "START"), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                        Text(!_isSubscriptionActive ? "PLAN EXPIRED" : (isCompleted ? "COMPLETED" : (_isOutsideCheckedIn ? "CHECK OUT" : "CHECK IN")), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
                       ],
                     ),
               ),
