@@ -90,7 +90,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'plan_id': _pendingPlanId,
       });
       if (verifyResponse.statusCode == 200) {
-        final data = json.decode(verifyResponse.body);
         if (mounted) {
           _showCustomAlert('Subscription activated successfully!', isSuccess: true);
           _loadDashboardData();
