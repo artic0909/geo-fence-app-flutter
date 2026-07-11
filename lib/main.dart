@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:volume_controller/volume_controller.dart';
 import 'screens/splash_screen.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/home_screen.dart';
@@ -27,11 +28,17 @@ void _showNotification(RemoteMessage message) async {
     sound: RawResourceAndroidNotificationSound('alert'),
     enableVibration: true,
     category: AndroidNotificationCategory.alarm,
-    timeoutAfter: 5000,
+    timeoutAfter: 15000,
   );
   
   const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
       
+  try {
+    await VolumeController.instance.setVolume(1.0);
+  } catch (e) {
+    debugPrint('Could not set volume: $e');
+  }
+
   await flutterLocalNotificationsPlugin.show(
     id: message.hashCode,
     title: message.notification?.title ?? message.data['title'] ?? 'ADMIN ALERT',
