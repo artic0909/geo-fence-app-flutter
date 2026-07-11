@@ -324,18 +324,26 @@ class _TrackScreenState extends State<TrackScreen> {
                       const SizedBox(height: 15),
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _isAlertButtonDisabled ? null : _sendAlert,
-                          icon: const Icon(Icons.warning_amber_rounded, color: Colors.white),
-                          label: Text(
-                            _isAlertButtonDisabled ? 'WAIT ${_alertCountdown}s' : 'SEND URGENT ALERT', 
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _isAlertButtonDisabled ? Colors.grey : Colors.redAccent,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
+                        child: Builder(
+                          builder: (context) {
+                            bool isCheckedIn = _attendanceType == 'inside' || _attendanceType == 'outside';
+                            bool canSend = isCheckedIn && !_isAlertButtonDisabled;
+                            String labelText = !isCheckedIn ? 'EMPLOYEE OFFLINE' : (_isAlertButtonDisabled ? 'WAIT ${_alertCountdown}s' : 'SEND URGENT ALERT');
+                            
+                            return ElevatedButton.icon(
+                              onPressed: canSend ? _sendAlert : null,
+                              icon: const Icon(Icons.warning_amber_rounded, color: Colors.white),
+                              label: Text(
+                                labelText, 
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: canSend ? Colors.redAccent : Colors.grey,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
                         ),
                       ),
                     ],

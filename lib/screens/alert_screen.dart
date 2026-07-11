@@ -9,15 +9,42 @@ class AlertScreen extends StatelessWidget {
       backgroundColor: Colors.red.shade900,
       body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
               const Icon(Icons.warning_rounded, size: 120, color: Colors.white),
+              const SizedBox(height: 20),
+              Image.asset(
+                'assets/playstore.png',
+                width: 80,
+                height: 80,
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                'Smart Geofence Attendance',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Project Attendance',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white70,
+                ),
+              ),
               const SizedBox(height: 30),
               const Text(
                 'ADMIN ALERT',
                 style: TextStyle(
-                  fontSize: 40,
+                  fontSize: 36,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                   letterSpacing: 2,
@@ -51,6 +78,8 @@ class AlertScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    ),
       ),
     );
   }
