@@ -7,8 +7,10 @@ import 'screens/splash_screen.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/history_screen.dart';
+import 'screens/alert_screen.dart';
 import 'services/background_location_service.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 @pragma('vm:entry-point')
@@ -58,6 +60,7 @@ void main() async {
     settings: initializationSettings,
     onDidReceiveNotificationResponse: (details) {
       debugPrint('Notification clicked: ${details.payload}');
+      navigatorKey.currentState?.pushNamed('/alert');
     },
   );
 
@@ -86,6 +89,11 @@ void main() async {
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     debugPrint('Foreground FCM received: ${message.messageId}');
     _showNotification(message);
+    navigatorKey.currentState?.pushNamed('/alert');
+  });
+
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    navigatorKey.currentState?.pushNamed('/alert');
   });
 
   // Do not await to prevent blocking runApp when OS restarts app after permission change
@@ -99,6 +107,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Smart Geofence Attendance',
       theme: ThemeData(
@@ -110,6 +119,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const RoleSelectionScreen(),
         '/home': (context) => const HomeScreen(),
         '/history': (context) => const HistoryScreen(),
+        '/alert': (context) => const AlertScreen(),
       },
     );
   }
