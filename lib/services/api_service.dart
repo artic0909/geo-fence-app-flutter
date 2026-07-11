@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class ApiService {
   static const String baseUrl = 'https://projectattendance.com/api';
@@ -24,6 +25,13 @@ class ApiService {
 
   static Future<http.Response> login(String email, String password) async {
     final deviceName = await _getDeviceName();
+    
+    String? fcmToken;
+    try {
+      fcmToken = await FirebaseMessaging.instance.getToken();
+    } catch (e) {
+      debugPrint('FCM Token error: $e');
+    }
 
     try {
       final response = await http.post(
@@ -32,6 +40,7 @@ class ApiService {
           'email': email,
           'password': password,
           'device_name': deviceName,
+          'fcm_token': fcmToken,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -250,6 +259,13 @@ class ApiService {
   static Future<http.Response> getEmployeeLocation(int employeeId) async {
     return await http.get(
       Uri.parse('$baseUrl/admin/track/$employeeId'),
+      headers: await getHeaders(),
+    );
+  }
+
+  static Future<http.Response> sendAdminAlert(int employeeId) async {
+    return await http.post(
+      Uri.parse('$baseUrl/admin/send-alert/$employeeId'),
       headers: await getHeaders(),
     );
   }

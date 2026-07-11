@@ -15,7 +15,6 @@ class BackgroundLocationService {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'location_tracking', // id
       'Location Tracking', // title
-      description: 'Progressing background location tracking.', // description
       importance: Importance.low, // importance must be low or higher to show notification
     );
 
@@ -26,7 +25,7 @@ class BackgroundLocationService {
     const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
     
     try {
-      await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+      await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
       
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()

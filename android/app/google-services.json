@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "901797793015",
+    "project_id": "smart-geofence-attendanc-f9cbb",
+    "storage_bucket": "smart-geofence-attendanc-f9cbb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:901797793015:android:e12bcb08f3dc29edb697f2",
+        "android_client_info": {
+          "package_name": "smart.geofence.attendance"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB__E5meqO1mAufuS2uav_8GZURnaLtUUQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -30,6 +30,10 @@ class _TrackScreenState extends State<TrackScreen> {
   Map<String, dynamic>? _geofence;
   String? _checkinLocation;
 
+  bool _isAlertButtonDisabled = false;
+  int _alertCountdown = 0;
+  Timer? _alertTimer;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +46,7 @@ class _TrackScreenState extends State<TrackScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _alertTimer?.cancel();
     super.dispose();
   }
 
@@ -81,6 +86,58 @@ class _TrackScreenState extends State<TrackScreen> {
           _lastUpdated = 'Error';
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _sendAlert() async {
+    if (_isAlertButtonDisabled) return;
+
+    setState(() {
+      _isAlertButtonDisabled = true;
+      _alertCountdown = 15;
+    });
+
+    _alertTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_alertCountdown > 1) {
+        if (mounted) {
+          setState(() {
+            _alertCountdown--;
+          });
+        }
+      } else {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _isAlertButtonDisabled = false;
+          });
+        }
+      }
+    });
+
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sending alert...')),
+      );
+      final response = await ApiService.sendAdminAlert(widget.employeeId);
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Alert sent successfully!'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to send alert. Make sure user is logged in to app.'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error sending alert.'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -263,6 +320,23 @@ class _TrackScreenState extends State<TrackScreen> {
                             ],
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 15),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _isAlertButtonDisabled ? null : _sendAlert,
+                          icon: const Icon(Icons.warning_amber_rounded, color: Colors.white),
+                          label: Text(
+                            _isAlertButtonDisabled ? 'WAIT ${_alertCountdown}s' : 'SEND URGENT ALERT', 
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isAlertButtonDisabled ? Colors.grey : Colors.redAccent,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
                       ),
                     ],
                   ),

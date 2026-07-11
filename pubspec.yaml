@@ -47,12 +47,14 @@ dependencies:
   latlong2: ^0.9.1
   geocoding: ^4.0.0
   flutter_background_service: ^5.1.0
-  flutter_local_notifications: ^19.5.0
+  flutter_local_notifications: ^22.0.1
   device_info_plus: ^12.4.0
   kiosk_mode: ^0.8.0+1
   razorpay_flutter: ^1.4.5
   phone_state: ^3.0.1
   simple_pip_mode: ^1.1.0
+  firebase_core: ^4.11.0
+  firebase_messaging: ^16.4.1
 
 flutter_launcher_icons:
   android: "ic_launcher"
