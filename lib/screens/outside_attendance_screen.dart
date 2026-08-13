@@ -20,6 +20,7 @@ import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
 import '../widgets/permission_dialog.dart';
 import '../widgets/kiosk_countdown_dialog.dart';
+import '../widgets/kiosk_grace_period_dialog.dart';
 import 'package:kiosk_mode/kiosk_mode.dart';
 import 'package:phone_state/phone_state.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -96,7 +97,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _initializeApp();
 
     _kioskSubscription = watchKioskMode().listen((mode) async {
-      if (mode == KioskMode.disabled && _isOutsideCheckedIn && !_isHandlingCall) {
+      if (mode == KioskMode.enabled) {
+        if (mounted) KioskGracePeriodDialog.hide(context);
+      } else if (mode == KioskMode.disabled && _isOutsideCheckedIn && !_isHandlingCall) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         if (isRestricted && mounted && _currentLocation != null && !_isChecking) {
@@ -120,9 +123,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               return;
             }
 
-            // 15 seconds grace period to read and accept the prompt
+            // 120 seconds grace period to read and accept the prompt
             final requested = _kioskRequestedTime ?? DateTime.now();
-            if (DateTime.now().difference(requested).inSeconds > 15) {
+            if (DateTime.now().difference(requested).inSeconds > 120) {
               debugPrint("User denied or broke Kiosk Mode silently! Auto checking out (Outside)...");
               await _outsideCheckOut(isAutoTrap: true);
             }
@@ -147,6 +150,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
             await Future.delayed(const Duration(milliseconds: 1500));
             if (!_isHandlingCall) {
               _kioskRequestedTime ??= DateTime.now();
+              if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!);
               await startKioskMode();
             }
           }
@@ -194,6 +198,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
             await Future.delayed(const Duration(milliseconds: 500));
             if (!_isHandlingCall) {
               _kioskRequestedTime ??= DateTime.now();
+              if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!);
               await startKioskMode();
             }
           }
