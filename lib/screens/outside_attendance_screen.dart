@@ -114,6 +114,12 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         if (isRestricted && _currentLocation != null && !_isChecking && !_isHandlingCall) {
           final mode = await getKioskMode();
           if (mode == KioskMode.disabled) {
+            // Pause the timer if the app is in the background or screen is off
+            if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+              _kioskRequestedTime = DateTime.now();
+              return;
+            }
+
             // 15 seconds grace period to read and accept the prompt
             final requested = _kioskRequestedTime ?? DateTime.now();
             if (DateTime.now().difference(requested).inSeconds > 15) {
