@@ -147,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
                  flutterLocalNotificationsPlugin.show(
                    id: 888,
-                   title: 'Lunch Time Ending soon',
+                   title: 'Lunch Time Ending in 5 minutes ⚠️',
                    body: 'End lunch time go back to the app',
                    notificationDetails: const NotificationDetails(
                      android: AndroidNotificationDetails(
