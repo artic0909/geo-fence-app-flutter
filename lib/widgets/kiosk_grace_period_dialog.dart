@@ -13,7 +13,7 @@ class KioskGracePeriodDialog extends StatefulWidget {
 
   static bool _isShowing = false;
   
-  static Future<void> show(BuildContext context, DateTime requestedTime) async {
+  static Future<void> show(BuildContext context, DateTime requestedTime, {int maxSeconds = 120}) async {
     if (_isShowing) return;
     _isShowing = true;
     try {
@@ -22,7 +22,10 @@ class KioskGracePeriodDialog extends StatefulWidget {
         barrierDismissible: false,
         barrierColor: Colors.black87,
         useRootNavigator: true,
-        builder: (context) => KioskGracePeriodDialog(requestedTime: requestedTime),
+        builder: (context) => KioskGracePeriodDialog(
+          requestedTime: requestedTime,
+          maxSeconds: maxSeconds,
+        ),
       );
     } finally {
       _isShowing = false;

@@ -25,6 +25,7 @@ import '../widgets/kiosk_grace_period_dialog.dart';
 import 'package:kiosk_mode/kiosk_mode.dart';
 import 'package:phone_state/phone_state.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,6 +42,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   
   DateTime? _kioskRequestedTime;
   Timer? _kioskCheckTimer;
+
+  bool _wasLunchTime = false;
+  bool _lunchNotificationSent = false;
+  int _currentGracePeriodSeconds = 120;
 
   String _status = 'Ready for action';
   String _userName = 'User Name';
@@ -125,6 +130,48 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         
         if (isRestricted && _currentLocation != null && !_isChecking && !_isHandlingCall) {
+          bool currentlyLunch = _isLunchTime();
+          if (currentlyLunch) {
+            final mode = await getKioskMode();
+            if (mode == KioskMode.enabled) {
+              await stopKioskMode();
+            }
+            final endStr = _selectedGeofence?['lunch_end_time'];
+            if (endStr != null && !_lunchNotificationSent) {
+               final parts = endStr.split(':');
+               final now = DateTime.now();
+               final endTime = DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+               final diff = endTime.difference(now).inSeconds;
+               if (diff <= 300 && diff > 0) {
+                 _lunchNotificationSent = true;
+                 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+                 flutterLocalNotificationsPlugin.show(
+                   id: 888,
+                   title: 'Lunch Time Ending soon',
+                   body: 'End lunch time go back to the app',
+                   notificationDetails: const NotificationDetails(
+                     android: AndroidNotificationDetails(
+                       'lunch_alerts',
+                       'Lunch Alerts',
+                       importance: Importance.max,
+                       priority: Priority.high,
+                     )
+                   )
+                 );
+               }
+            }
+            _wasLunchTime = true;
+            return;
+          } else {
+            if (_wasLunchTime) {
+              _wasLunchTime = false;
+              _lunchNotificationSent = false;
+              _currentGracePeriodSeconds = 60;
+              _kioskRequestedTime = DateTime.now();
+              if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!, maxSeconds: 60);
+            }
+          }
+          
           final mode = await getKioskMode();
           if (mode == KioskMode.disabled) {
             // Pause the timer if the app is in the background or screen is off
@@ -133,9 +180,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
               return;
             }
 
-            // 120 seconds grace period to read and accept the prompt
+            // grace period to read and accept the prompt
             final requested = _kioskRequestedTime ?? DateTime.now();
-            if (DateTime.now().difference(requested).inSeconds > 120) {
+            if (DateTime.now().difference(requested).inSeconds > _currentGracePeriodSeconds) {
               debugPrint("User denied or broke Kiosk Mode silently! Auto checking out...");
               await _checkOut(Position(
                 latitude: _currentLocation!.latitude,
@@ -148,6 +195,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           } else {
             // Reset requested time once successfully enabled
             _kioskRequestedTime = null;
+            _currentGracePeriodSeconds = 120;
           }
         }
       }
@@ -220,6 +268,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           }
         }
       }
+    }
+  }
+
+  bool _isLunchTime() {
+    if (_selectedGeofence == null) return false;
+    final startStr = _selectedGeofence!['lunch_start_time'];
+    final endStr = _selectedGeofence!['lunch_end_time'];
+    if (startStr == null || endStr == null) return false;
+    
+    try {
+      final now = DateTime.now();
+      final startParts = startStr.toString().split(':');
+      final endParts = endStr.toString().split(':');
+      
+      final startTime = DateTime(now.year, now.month, now.day, int.parse(startParts[0]), int.parse(startParts[1]));
+      final endTime = DateTime(now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1]));
+      
+      return now.isAfter(startTime) && now.isBefore(endTime);
+    } catch (e) {
+      return false;
     }
   }
 
