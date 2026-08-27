@@ -111,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       } else if (mode == KioskMode.disabled && _isCheckedIn && !_isHandlingCall) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted && _currentLocation != null && !_isChecking) {
+        if (isRestricted && mounted && _currentLocation != null && !_isChecking && !_isLunchTime()) {
           debugPrint("User broke Kiosk Mode! Auto checking out...");
           await _checkOut(Position(
             latitude: _currentLocation!.latitude,
@@ -174,10 +174,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           
           final mode = await getKioskMode();
           if (mode == KioskMode.disabled) {
-            // Pause the timer if the app is in the background or screen is off
+            // Pause the timer if the app is in the background or screen is off,
+            // EXCEPT when enforcing the post-lunch 60-second grace period!
             if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-              _kioskRequestedTime = DateTime.now();
-              return;
+              if (_currentGracePeriodSeconds > 60) {
+                _kioskRequestedTime = DateTime.now();
+                return;
+              }
             }
 
             // grace period to read and accept the prompt
@@ -212,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           final isRestricted = prefs.getBool('phone_restriction') ?? false;
           if (isRestricted) {
             await Future.delayed(const Duration(milliseconds: 1500));
-            if (!_isHandlingCall) {
+            if (!_isHandlingCall && !_isLunchTime()) {
               _kioskRequestedTime ??= DateTime.now();
               if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!);
               await startKioskMode();
@@ -260,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           final mode = await getKioskMode();
           if (mode == KioskMode.disabled) {
             await Future.delayed(const Duration(milliseconds: 500));
-            if (!_isHandlingCall) {
+            if (!_isHandlingCall && !_isLunchTime()) {
               _kioskRequestedTime ??= DateTime.now();
               if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!);
               await startKioskMode();
