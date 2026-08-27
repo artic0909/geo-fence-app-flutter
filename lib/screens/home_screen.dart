@@ -160,6 +160,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                  );
                }
             }
+            if (!_wasLunchTime) {
+               final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+               flutterLocalNotificationsPlugin.show(
+                 id: 887,
+                 title: 'Lunch Time Started 🍔',
+                 body: 'App restrictions are temporarily lifted. Enjoy your lunch!',
+                 notificationDetails: const NotificationDetails(
+                   android: AndroidNotificationDetails(
+                     'lunch_alerts',
+                     'Lunch Alerts',
+                     importance: Importance.max,
+                     priority: Priority.high,
+                   )
+                 )
+               );
+            }
+
             _wasLunchTime = true;
             return;
           } else {
