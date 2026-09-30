@@ -99,35 +99,31 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _kioskSubscription = watchKioskMode().listen((mode) async {
       if (mode == KioskMode.enabled) {
         if (mounted) KioskGracePeriodDialog.hide(context);
+        _kioskRequestedTime = null;
       } else if (mode == KioskMode.disabled && _isOutsideCheckedIn && !_isHandlingCall) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted && _currentLocation != null && !_isChecking) {
+        if (isRestricted && mounted && !_isChecking) {
           debugPrint("User broke Kiosk Mode! Auto checking out (Outside)...");
-          await _outsideCheckOut(isAutoTrap: true);
+          await _handleOutsidePinningViolation();
         }
       }
     });
 
-    _kioskCheckTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    _kioskCheckTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (_isOutsideCheckedIn && mounted) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         
-        if (isRestricted && _currentLocation != null && !_isChecking && !_isHandlingCall) {
+        if (isRestricted && !_isChecking && !_isHandlingCall) {
           final mode = await getKioskMode();
           if (mode == KioskMode.disabled) {
-            // Pause the timer if the app is in the background or screen is off
-            if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-              _kioskRequestedTime = DateTime.now();
-              return;
-            }
-
-            // 120 seconds grace period to read and accept the prompt
-            final requested = _kioskRequestedTime ?? DateTime.now();
-            if (DateTime.now().difference(requested).inSeconds > 120) {
-              debugPrint("User denied or broke Kiosk Mode silently! Auto checking out (Outside)...");
-              await _outsideCheckOut(isAutoTrap: true);
+            if (_kioskRequestedTime != null) {
+              final diff = DateTime.now().difference(_kioskRequestedTime!).inSeconds;
+              if (diff > 10) {
+                debugPrint("User denied or broke Kiosk Mode silently! Auto checking out (Outside)...");
+                await _handleOutsidePinningViolation();
+              }
             }
           } else {
             // Reset requested time once successfully enabled
@@ -140,6 +136,8 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _phoneStateSubscription = PhoneState.stream.listen((event) async {
       if (event.status == PhoneStateStatus.CALL_INCOMING) {
         _isHandlingCall = true;
+        if (mounted) KioskGracePeriodDialog.hide(context);
+        _kioskRequestedTime = null;
         await stopKioskMode();
       } else if (event.status == PhoneStateStatus.CALL_ENDED) {
         _isHandlingCall = false;
@@ -147,16 +145,32 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           final prefs = await SharedPreferences.getInstance();
           final isRestricted = prefs.getBool('phone_restriction') ?? false;
           if (isRestricted) {
-            await Future.delayed(const Duration(milliseconds: 1500));
-            if (!_isHandlingCall) {
-              _kioskRequestedTime ??= DateTime.now();
-              if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!);
-              await startKioskMode();
+            if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+              await Future.delayed(const Duration(milliseconds: 1500));
+              if (!_isHandlingCall) {
+                _kioskRequestedTime = DateTime.now();
+                if (mounted) {
+                  KioskGracePeriodDialog.show(
+                    context, 
+                    _kioskRequestedTime!,
+                    maxSeconds: 10,
+                    onBackOrDismiss: _handleOutsidePinningViolation,
+                  );
+                }
+                await startKioskMode();
+              }
             }
           }
         }
       }
     });
+  }
+
+  Future<void> _handleOutsidePinningViolation() async {
+    if (_isOutsideCheckedIn && !_isChecking && mounted) {
+      debugPrint("Outside pinning violation detected! Auto checking out...");
+      await _outsideCheckOut(isAutoTrap: true);
+    }
   }
 
   Future<void> _initializeApp() async {
@@ -198,9 +212,28 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
             await Future.delayed(const Duration(milliseconds: 500));
             if (!_isHandlingCall) {
               _kioskRequestedTime ??= DateTime.now();
-              if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!);
+              if (mounted) {
+                KioskGracePeriodDialog.show(
+                  context, 
+                  _kioskRequestedTime!,
+                  maxSeconds: 10,
+                  onBackOrDismiss: _handleOutsidePinningViolation,
+                );
+              }
               await startKioskMode();
             }
+          }
+        }
+      }
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      if (_isOutsideCheckedIn && !_isHandlingCall && _kioskRequestedTime != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted) {
+          final mode = await getKioskMode();
+          if (mode == KioskMode.disabled) {
+            debugPrint("User left the app without accepting pinning (Outside)! Auto checking out...");
+            await _handleOutsidePinningViolation();
           }
         }
       }
@@ -617,6 +650,20 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
     return PopScope(
       canPop: !_isOutsideCheckedIn && !isCompleted,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_isOutsideCheckedIn) {
+          final prefs = await SharedPreferences.getInstance();
+          final isRestricted = prefs.getBool('phone_restriction') ?? false;
+          if (isRestricted && !_isHandlingCall) {
+            final mode = await getKioskMode();
+            if (mode == KioskMode.disabled) {
+              debugPrint("User pressed back while unpinned (Outside)! Auto checking out...");
+              await _handleOutsidePinningViolation();
+            }
+          }
+        }
+      },
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(

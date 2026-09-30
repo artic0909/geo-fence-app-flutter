@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
   bool _wasLunchTime = false;
   bool _lunchNotificationSent = false;
-  int _currentGracePeriodSeconds = 120;
+  int _currentGracePeriodSeconds = 10;
 
   String _status = 'Ready for action';
   String _userName = 'User Name';
@@ -75,6 +75,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       await _pipChannel.invokeMethod('setPipAllowed', {'allowed': allowed});
     } catch (e) {
       debugPrint("PIP Error: $e");
+    }
+  }
+
+  Future<void> _handlePinningViolation() async {
+    if (_isCheckedIn && !_isChecking && mounted) {
+      debugPrint("Pinning violation detected! Auto checking out...");
+      final pos = _currentLocation != null
+          ? Position(
+              latitude: _currentLocation!.latitude,
+              longitude: _currentLocation!.longitude,
+              timestamp: DateTime.now(),
+              accuracy: 0.0,
+              altitude: 0.0,
+              heading: 0.0,
+              speed: 0.0,
+              speedAccuracy: 0.0,
+              altitudeAccuracy: 0.0,
+              headingAccuracy: 0.0,
+            )
+          : await LocationService.getCurrentLocation();
+      await _checkOut(pos, isAutoTrap: true);
     }
   }
 
@@ -108,28 +129,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     _kioskSubscription = watchKioskMode().listen((mode) async {
       if (mode == KioskMode.enabled) {
         if (mounted) KioskGracePeriodDialog.hide(context);
+        _kioskRequestedTime = null;
+        _currentGracePeriodSeconds = 10;
       } else if (mode == KioskMode.disabled && _isCheckedIn && !_isHandlingCall) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted && _currentLocation != null && !_isChecking && !_isLunchTime()) {
+        if (isRestricted && mounted && !_isChecking && !_isLunchTime()) {
           debugPrint("User broke Kiosk Mode! Auto checking out...");
-          await _checkOut(Position(
-            latitude: _currentLocation!.latitude,
-            longitude: _currentLocation!.longitude,
-            timestamp: DateTime.now(),
-            accuracy: 0.0, altitude: 0.0, heading: 0.0, speed: 0.0, speedAccuracy: 0.0,
-            altitudeAccuracy: 0.0, headingAccuracy: 0.0,
-          ), isAutoTrap: true);
+          await _handlePinningViolation();
         }
       }
     });
 
-    _kioskCheckTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    _kioskCheckTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (_isCheckedIn && mounted) {
         final prefs = await SharedPreferences.getInstance();
         final isRestricted = prefs.getBool('phone_restriction') ?? false;
         
-        if (isRestricted && _currentLocation != null && !_isChecking && !_isHandlingCall) {
+        if (isRestricted && !_isChecking && !_isHandlingCall) {
           bool currentlyLunch = _isLunchTime();
           if (currentlyLunch) {
             final mode = await getKioskMode();
@@ -185,37 +202,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
               _lunchNotificationSent = false;
               _currentGracePeriodSeconds = 60;
               _kioskRequestedTime = DateTime.now();
-              if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!, maxSeconds: 60);
+              if (mounted) {
+                KioskGracePeriodDialog.show(
+                  context, 
+                  _kioskRequestedTime!, 
+                  maxSeconds: 60,
+                  onBackOrDismiss: _handlePinningViolation,
+                );
+              }
             }
           }
           
           final mode = await getKioskMode();
           if (mode == KioskMode.disabled) {
-            // Pause the timer if the app is in the background or screen is off,
-            // EXCEPT when enforcing the post-lunch 60-second grace period!
-            if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-              if (_currentGracePeriodSeconds > 60) {
-                _kioskRequestedTime = DateTime.now();
-                return;
+            if (_kioskRequestedTime != null) {
+              final diff = DateTime.now().difference(_kioskRequestedTime!).inSeconds;
+              if (diff > _currentGracePeriodSeconds) {
+                debugPrint("User denied or broke Kiosk Mode silently! Auto checking out...");
+                await _handlePinningViolation();
               }
-            }
-
-            // grace period to read and accept the prompt
-            final requested = _kioskRequestedTime ?? DateTime.now();
-            if (DateTime.now().difference(requested).inSeconds > _currentGracePeriodSeconds) {
-              debugPrint("User denied or broke Kiosk Mode silently! Auto checking out...");
-              await _checkOut(Position(
-                latitude: _currentLocation!.latitude,
-                longitude: _currentLocation!.longitude,
-                timestamp: DateTime.now(),
-                accuracy: 0.0, altitude: 0.0, heading: 0.0, speed: 0.0, speedAccuracy: 0.0,
-                altitudeAccuracy: 0.0, headingAccuracy: 0.0,
-              ), isAutoTrap: true);
             }
           } else {
             // Reset requested time once successfully enabled
             _kioskRequestedTime = null;
-            _currentGracePeriodSeconds = 120;
+            _currentGracePeriodSeconds = 10;
           }
         }
       }
@@ -224,6 +234,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     _phoneStateSubscription = PhoneState.stream.listen((event) async {
       if (event.status == PhoneStateStatus.CALL_INCOMING) {
         _isHandlingCall = true;
+        if (mounted) KioskGracePeriodDialog.hide(context);
+        _kioskRequestedTime = null;
         await stopKioskMode();
       } else if (event.status == PhoneStateStatus.CALL_ENDED) {
         _isHandlingCall = false;
@@ -231,11 +243,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           final prefs = await SharedPreferences.getInstance();
           final isRestricted = prefs.getBool('phone_restriction') ?? false;
           if (isRestricted) {
-            await Future.delayed(const Duration(milliseconds: 1500));
-            if (!_isHandlingCall && !_isLunchTime()) {
-              _kioskRequestedTime ??= DateTime.now();
-              if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!);
-              await startKioskMode();
+            if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+              await Future.delayed(const Duration(milliseconds: 1500));
+              if (!_isHandlingCall && !_isLunchTime()) {
+                _kioskRequestedTime = DateTime.now();
+                _currentGracePeriodSeconds = 10;
+                if (mounted) {
+                  KioskGracePeriodDialog.show(
+                    context, 
+                    _kioskRequestedTime!,
+                    maxSeconds: 10,
+                    onBackOrDismiss: _handlePinningViolation,
+                  );
+                }
+                await startKioskMode();
+              }
             }
           }
         }
@@ -282,9 +304,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
             await Future.delayed(const Duration(milliseconds: 500));
             if (!_isHandlingCall && !_isLunchTime()) {
               _kioskRequestedTime ??= DateTime.now();
-              if (mounted) KioskGracePeriodDialog.show(context, _kioskRequestedTime!);
+              _currentGracePeriodSeconds = 10;
+              if (mounted) {
+                KioskGracePeriodDialog.show(
+                  context, 
+                  _kioskRequestedTime!,
+                  maxSeconds: _currentGracePeriodSeconds,
+                  onBackOrDismiss: _handlePinningViolation,
+                );
+              }
               await startKioskMode();
             }
+          }
+        }
+      }
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      if (_isCheckedIn && !_isHandlingCall && !_isLunchTime() && _kioskRequestedTime != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final isRestricted = prefs.getBool('phone_restriction') ?? false;
+        if (isRestricted) {
+          final mode = await getKioskMode();
+          if (mode == KioskMode.disabled) {
+            debugPrint("User left the app without accepting pinning! Auto checking out...");
+            await _handlePinningViolation();
           }
         }
       }
@@ -734,24 +776,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     final String today = DateTime.now().toIso8601String().split('T')[0];
     final bool isCompleted = !_isCheckedIn && _lastActionDate == today;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
-          Positioned.fill(child: Opacity(opacity: 0.15, child: Image.asset('assets/map.png', fit: BoxFit.cover))),
+    return PopScope(
+      canPop: !_isCheckedIn && !isCompleted,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_isCheckedIn) {
+          final prefs = await SharedPreferences.getInstance();
+          final isRestricted = prefs.getBool('phone_restriction') ?? false;
+          if (isRestricted && !_isHandlingCall && !_isLunchTime()) {
+            final mode = await getKioskMode();
+            if (mode == KioskMode.disabled) {
+              debugPrint("User pressed back while unpinned in restricted zone! Auto checking out...");
+              await _handlePinningViolation();
+            }
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
+            Positioned.fill(child: Opacity(opacity: 0.15, child: Image.asset('assets/map.png', fit: BoxFit.cover))),
 
-          Column(
-            children: [
-              _buildTopBar(saffron),
-              _buildSatelliteMap(saffron),
-              _buildStatusRow(),
-              Expanded(child: Center(child: _buildAttendanceButton(green, isCompleted))),
-              _buildGuideSection(saffron, isCompleted),
-              const SizedBox(height: 25),
-            ],
-          ),
-        ],
+            Column(
+              children: [
+                _buildTopBar(saffron),
+                _buildSatelliteMap(saffron),
+                _buildStatusRow(),
+                Expanded(child: Center(child: _buildAttendanceButton(green, isCompleted))),
+                _buildGuideSection(saffron, isCompleted),
+                const SizedBox(height: 25),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

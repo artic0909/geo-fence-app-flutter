@@ -4,16 +4,18 @@ import 'package:flutter/material.dart';
 class KioskGracePeriodDialog extends StatefulWidget {
   final DateTime requestedTime;
   final int maxSeconds;
+  final VoidCallback? onBackOrDismiss;
 
   const KioskGracePeriodDialog({
     super.key,
     required this.requestedTime,
-    this.maxSeconds = 120,
+    this.maxSeconds = 10,
+    this.onBackOrDismiss,
   });
 
   static bool _isShowing = false;
   
-  static Future<void> show(BuildContext context, DateTime requestedTime, {int maxSeconds = 120}) async {
+  static Future<void> show(BuildContext context, DateTime requestedTime, {int maxSeconds = 10, VoidCallback? onBackOrDismiss}) async {
     if (_isShowing) return;
     _isShowing = true;
     try {
@@ -25,6 +27,7 @@ class KioskGracePeriodDialog extends StatefulWidget {
         builder: (context) => KioskGracePeriodDialog(
           requestedTime: requestedTime,
           maxSeconds: maxSeconds,
+          onBackOrDismiss: onBackOrDismiss,
         ),
       );
     } finally {
@@ -45,11 +48,12 @@ class KioskGracePeriodDialog extends StatefulWidget {
 
 class _KioskGracePeriodDialogState extends State<KioskGracePeriodDialog> {
   Timer? _timer;
-  int _secondsLeft = 120;
+  late int _secondsLeft;
 
   @override
   void initState() {
     super.initState();
+    _secondsLeft = widget.maxSeconds;
     _updateTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -80,6 +84,10 @@ class _KioskGracePeriodDialogState extends State<KioskGracePeriodDialog> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        widget.onBackOrDismiss?.call();
+      },
       child: Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,
