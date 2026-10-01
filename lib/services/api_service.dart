@@ -23,6 +23,14 @@ class ApiService {
     };
   }
 
+  static Future<Map<String, String>> getMultipartHeaders() async {
+    String? token = await getToken();
+    return {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
   static Future<http.Response> login(String email, String password) async {
     final deviceName = await _getDeviceName();
     
@@ -69,8 +77,8 @@ class ApiService {
         Uri.parse('$baseUrl/check-in'),
       );
 
-      // Add headers
-      final headers = await getHeaders();
+      // Add headers for multipart
+      final headers = await getMultipartHeaders();
       request.headers.addAll(headers);
 
       // Add fields
@@ -106,7 +114,7 @@ class ApiService {
       'POST',
       Uri.parse('$baseUrl/check-out'),
     );
-    request.headers.addAll(await getHeaders());
+    request.headers.addAll(await getMultipartHeaders());
 
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
@@ -134,7 +142,7 @@ class ApiService {
       'POST',
       Uri.parse('$baseUrl/outside-check-in'),
     );
-    request.headers.addAll(await getHeaders());
+    request.headers.addAll(await getMultipartHeaders());
 
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
@@ -159,7 +167,7 @@ class ApiService {
       'POST',
       Uri.parse('$baseUrl/outside-check-out'),
     );
-    request.headers.addAll(await getHeaders());
+    request.headers.addAll(await getMultipartHeaders());
 
     request.fields['latitude'] = lat.toString();
     request.fields['longitude'] = lng.toString();
