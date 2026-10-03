@@ -373,29 +373,94 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           ),
 
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: BoxDecoration(
               color: isTrap ? Colors.red.withValues(alpha: 0.1) : (attend.isOutside ? Colors.orange.withValues(alpha: 0.08) : const Color(0xFFF8F9FA)),
               borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildTimeColumn("CHECK-IN", _formatTime(attend.checkIn), Icons.access_time_filled_rounded, attend.isOutside ? Colors.orange : Colors.blue),
-                const Spacer(),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text("TOTAL TIME", style: TextStyle(fontSize: 7, fontWeight: FontWeight.w900, color: Colors.grey.shade500, letterSpacing: 0.5)),
-                    const SizedBox(height: 2),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(4)),
-                      child: Text(_calculateTotalTime(attend.checkIn, attend.checkOut), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                _buildTimeColumn("CHECK-OUT", _formatTime(attend.checkOut), Icons.alarm_on_rounded, attend.isOutside ? Colors.deepOrange : Colors.orange),
+                if (attend.sessions.isNotEmpty)
+                  ...attend.sessions.asMap().entries.map((entry) {
+                    final session = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          _buildTimeColumn("CHECK-IN", session.checkInTime, Icons.access_time_filled_rounded, session.type == 'outside' ? Colors.orange : Colors.blue),
+                          const Spacer(),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text("DURATION", style: TextStyle(fontSize: 7, fontWeight: FontWeight.w900, color: Colors.grey.shade500, letterSpacing: 0.5)),
+                              const SizedBox(height: 2),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(4)),
+                                child: Text(session.duration, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          _buildTimeColumn("CHECK-OUT", session.checkOutTime, Icons.alarm_on_rounded, session.type == 'outside' ? Colors.deepOrange : Colors.orange),
+                        ],
+                      ),
+                    );
+                  })
+                else
+                  Row(
+                    children: [
+                      _buildTimeColumn("CHECK-IN", _formatTime(attend.checkIn), Icons.access_time_filled_rounded, attend.isOutside ? Colors.orange : Colors.blue),
+                      const Spacer(),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text("DURATION", style: TextStyle(fontSize: 7, fontWeight: FontWeight.w900, color: Colors.grey.shade500, letterSpacing: 0.5)),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(4)),
+                            child: Text(attend.totalTime ?? _calculateTotalTime(attend.checkIn, attend.checkOut), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF1A1A1A))),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      _buildTimeColumn("CHECK-OUT", _formatTime(attend.checkOut), Icons.alarm_on_rounded, attend.isOutside ? Colors.deepOrange : Colors.orange),
+                    ],
+                  ),
+
+                if (attend.totalTime != null && attend.totalTime!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Divider(height: 12, thickness: 0.8, color: Colors.grey.withValues(alpha: 0.2)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.timer_rounded, size: 13, color: Colors.grey.shade700),
+                          const SizedBox(width: 5),
+                          Text(
+                            "Total actual working hours",
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey.shade700),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF2E7D32).withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          attend.totalTime!,
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF2E7D32)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
