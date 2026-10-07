@@ -127,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
             flutterLocalNotificationsPlugin.show(
               id: 887,
               title: 'Lunch Time Started 🍔',
-              body: 'Enjoy your lunch break! Phone usage tracking is paused during lunch.',
+              body: 'Enjoy your lunch break!',
               notificationDetails: const NotificationDetails(
                 android: AndroidNotificationDetails(
                   'lunch_alerts',
@@ -150,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
             flutterLocalNotificationsPlugin.show(
               id: 889,
               title: 'Lunch Break Ended ⏰',
-              body: 'Lunch time is over. Duty and phone usage tracking resumed.',
+              body: 'Lunch time is over!',
               notificationDetails: const NotificationDetails(
                 android: AndroidNotificationDetails(
                   'lunch_alerts',
