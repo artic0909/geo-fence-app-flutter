@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:app_usage/app_usage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -182,117 +183,129 @@ class AppUsageService {
       };
     }
 
-    // Total actual work session seconds (Hard ceiling)
-    final int maxSessionSeconds = checkOutTime.difference(checkInTime).inSeconds.clamp(0, 86400);
-
-    // Get baseline at check-in and current snapshot at check-out
-    final Map<String, int> checkInBaseline = await getSavedBaseline(keyPrefix);
-    final Map<String, int> checkOutSnapshot = await captureSnapshot();
-
-    // Also get saved lunch snapshots if any
-    final Map<String, int> lunchStartSnapshot = await getSavedBaseline('${keyPrefix}_lunch_start');
-    final Map<String, int> lunchEndBaseline = await getSavedBaseline('${keyPrefix}_lunch_end');
+    // 1. Calculate actual elapsed duty windows (Hard ceilings)
+    final int totalSessionElapsedSeconds = math.max(0, checkOutTime.difference(checkInTime).inSeconds);
+    if (totalSessionElapsedSeconds <= 0) {
+      return {
+        'before_lunch': [],
+        'after_lunch': [],
+        'summary': [],
+        'total_tracked_seconds': 0,
+        'total_tracked_formatted': '0s',
+        'lunch_start_time': lunchStartTime,
+        'lunch_end_time': lunchEndTime,
+      };
+    }
 
     final DateTime? lunchStart = parseTimeToDate(checkInTime, lunchStartTime);
     final DateTime? lunchEnd = parseTimeToDate(checkInTime, lunchEndTime);
+    final bool hasLunch = lunchStart != null && lunchEnd != null && lunchEnd.isAfter(lunchStart);
 
-    final bool hasLunchConfig = lunchStart != null && lunchEnd != null && lunchEnd.isAfter(lunchStart);
+    int beforeDutyWindowSeconds = totalSessionElapsedSeconds;
+    int afterDutyWindowSeconds = 0;
 
-    // Calculate Before Lunch and After Lunch Deltas
-    List<Map<String, dynamic>> beforeLunchList = [];
-    List<Map<String, dynamic>> afterLunchList = [];
-
-    // All unique packages recorded
-    final Set<String> allPackages = {...checkOutSnapshot.keys, ...checkInBaseline.keys};
-
-    if (hasLunchConfig) {
-      // Check if session crossed before lunch vs after lunch
-      final bool checkedInBeforeLunch = checkInTime.isBefore(lunchStart);
-      final bool checkedOutAfterLunch = checkOutTime.isAfter(lunchEnd);
-
-      for (final pkg in allPackages) {
-        if (_ignoredPackages.any((ip) => pkg.contains(ip))) continue;
-
-        int current = checkOutSnapshot[pkg] ?? 0;
-        int checkInBase = checkInBaseline[pkg] ?? 0;
-        int lStart = lunchStartSnapshot.isNotEmpty ? (lunchStartSnapshot[pkg] ?? current) : current;
-        int lEnd = lunchEndBaseline.isNotEmpty ? (lunchEndBaseline[pkg] ?? lStart) : lStart;
-
-        int beforeSecs = 0;
-        int afterSecs = 0;
-
-        if (checkedInBeforeLunch) {
-          if (lunchStartSnapshot.isNotEmpty) {
-            beforeSecs = (lStart - checkInBase).clamp(0, maxSessionSeconds);
-          } else if (checkOutTime.isBefore(lunchStart)) {
-            beforeSecs = (current - checkInBase).clamp(0, maxSessionSeconds);
-          } else {
-            // Checked out after lunch but mid-day sync wasn't saved: split based on interval
-            int totalDelta = (current - checkInBase).clamp(0, maxSessionSeconds);
-            beforeSecs = totalDelta;
-          }
-        }
-
-        if (checkedOutAfterLunch) {
-          if (lunchEndBaseline.isNotEmpty) {
-            afterSecs = (current - lEnd).clamp(0, maxSessionSeconds);
-          } else if (checkInTime.isAfter(lunchEnd)) {
-            afterSecs = (current - checkInBase).clamp(0, maxSessionSeconds);
-          }
-        }
-
-        final String friendlyName = _cleanAppName(pkg, '');
-
-        if (beforeSecs > 0) {
-          beforeLunchList.add({
-            'package_name': pkg,
-            'app_name': friendlyName,
-            'usage_seconds': beforeSecs,
-            'usage_formatted': formatSeconds(beforeSecs),
-          });
-        }
-
-        if (afterSecs > 0) {
-          afterLunchList.add({
-            'package_name': pkg,
-            'app_name': friendlyName,
-            'usage_seconds': afterSecs,
-            'usage_formatted': formatSeconds(afterSecs),
-          });
-        }
+    if (hasLunch) {
+      if (checkInTime.isBefore(lunchStart)) {
+        DateTime bEnd = checkOutTime.isBefore(lunchStart) ? checkOutTime : lunchStart;
+        beforeDutyWindowSeconds = math.max(0, bEnd.difference(checkInTime).inSeconds);
+      } else {
+        beforeDutyWindowSeconds = 0;
       }
-    } else {
-      // No dynamic lunch time on site: standard session delta
-      for (final pkg in allPackages) {
-        if (_ignoredPackages.any((ip) => pkg.contains(ip))) continue;
 
-        int current = checkOutSnapshot[pkg] ?? 0;
-        int base = checkInBaseline[pkg] ?? 0;
-        int delta = (current - base).clamp(0, maxSessionSeconds);
-
-        if (delta > 0) {
-          final String friendlyName = _cleanAppName(pkg, '');
-          beforeLunchList.add({
-            'package_name': pkg,
-            'app_name': friendlyName,
-            'usage_seconds': delta,
-            'usage_formatted': formatSeconds(delta),
-          });
-        }
+      if (checkOutTime.isAfter(lunchEnd)) {
+        DateTime aStart = checkInTime.isAfter(lunchEnd) ? checkInTime : lunchEnd;
+        afterDutyWindowSeconds = math.max(0, checkOutTime.difference(aStart).inSeconds);
+      } else {
+        afterDutyWindowSeconds = 0;
       }
     }
 
-    // Build unified summary map
+    final int totalDutySeconds = math.max(1, beforeDutyWindowSeconds + afterDutyWindowSeconds);
+
+    // 2. Read baseline snapshots
+    final Map<String, int> checkInBaseline = await getSavedBaseline(keyPrefix);
+    final Map<String, int> checkOutSnapshot = await captureSnapshot();
+    final Map<String, int> lunchStartSnapshot = await getSavedBaseline('${keyPrefix}_lunch_start');
+    final Map<String, int> lunchEndBaseline = await getSavedBaseline('${keyPrefix}_lunch_end');
+
+    // 3. Calculate true deltas for each app
+    final Map<String, int> appBeforeDeltas = {};
+    final Map<String, int> appAfterDeltas = {};
+
+    final Set<String> allPackages = {...checkOutSnapshot.keys, ...checkInBaseline.keys};
+
+    for (final pkg in allPackages) {
+      if (_ignoredPackages.any((ip) => pkg.contains(ip))) continue;
+
+      int currentCumulative = checkOutSnapshot[pkg] ?? 0;
+      
+      // If checkInBaseline exists, use it; otherwise fallback to 0 delta if app was not actively used
+      int baselineCumulative = checkInBaseline.containsKey(pkg) ? checkInBaseline[pkg]! : currentCumulative;
+      int totalDelta = (currentCumulative - baselineCumulative).clamp(0, totalSessionElapsedSeconds);
+
+      if (totalDelta <= 0) continue;
+
+      if (hasLunch && (beforeDutyWindowSeconds > 0 || afterDutyWindowSeconds > 0)) {
+        int bDelta = 0;
+        int aDelta = 0;
+
+        if (beforeDutyWindowSeconds > 0 && afterDutyWindowSeconds > 0) {
+          // Both sessions were active
+          if (lunchStartSnapshot.isNotEmpty && lunchStartSnapshot.containsKey(pkg)) {
+            int lStart = lunchStartSnapshot[pkg]!;
+            bDelta = (lStart - baselineCumulative).clamp(0, beforeDutyWindowSeconds);
+            int lEnd = lunchEndBaseline.containsKey(pkg) ? lunchEndBaseline[pkg]! : lStart;
+            aDelta = (currentCumulative - lEnd).clamp(0, afterDutyWindowSeconds);
+          } else {
+            // Split proportionally based on window sizes
+            double bRatio = beforeDutyWindowSeconds / totalDutySeconds;
+            bDelta = (totalDelta * bRatio).round().clamp(0, beforeDutyWindowSeconds);
+            aDelta = (totalDelta - bDelta).clamp(0, afterDutyWindowSeconds);
+          }
+        } else if (beforeDutyWindowSeconds > 0) {
+          bDelta = totalDelta.clamp(0, beforeDutyWindowSeconds);
+        } else if (afterDutyWindowSeconds > 0) {
+          aDelta = totalDelta.clamp(0, afterDutyWindowSeconds);
+        }
+
+        if (bDelta > 0) appBeforeDeltas[pkg] = bDelta;
+        if (aDelta > 0) appAfterDeltas[pkg] = aDelta;
+      } else {
+        appBeforeDeltas[pkg] = totalDelta.clamp(0, beforeDutyWindowSeconds);
+      }
+    }
+
+    // 4. Mathematical Screen Invariant: Total active screen time cannot exceed working window
+    // (A user can only look at 1 app at a time on screen)
+    int sumBefore = appBeforeDeltas.values.fold(0, (sum, v) => sum + v);
+    if (sumBefore > beforeDutyWindowSeconds && beforeDutyWindowSeconds > 0) {
+      double scale = beforeDutyWindowSeconds / sumBefore;
+      appBeforeDeltas.updateAll((pkg, val) => math.max(1, (val * scale).floor()));
+    }
+
+    int sumAfter = appAfterDeltas.values.fold(0, (sum, v) => sum + v);
+    if (sumAfter > afterDutyWindowSeconds && afterDutyWindowSeconds > 0) {
+      double scale = afterDutyWindowSeconds / sumAfter;
+      appAfterDeltas.updateAll((pkg, val) => math.max(1, (val * scale).floor()));
+    }
+
+    // 5. Build structured lists and summary
+    List<Map<String, dynamic>> beforeLunchList = [];
+    List<Map<String, dynamic>> afterLunchList = [];
     final Map<String, Map<String, dynamic>> summaryMap = {};
 
-    for (var app in beforeLunchList) {
-      String pkg = app['package_name'];
-      String name = app['app_name'];
-      int secs = app['usage_seconds'] ?? 0;
+    appBeforeDeltas.forEach((pkg, secs) {
+      final String friendlyName = _cleanAppName(pkg, '');
+      beforeLunchList.add({
+        'package_name': pkg,
+        'app_name': friendlyName,
+        'usage_seconds': secs,
+        'usage_formatted': formatSeconds(secs),
+      });
 
       summaryMap[pkg] = {
         'package_name': pkg,
-        'app_name': name,
+        'app_name': friendlyName,
         'before_lunch_seconds': secs,
         'before_lunch_formatted': formatSeconds(secs),
         'after_lunch_seconds': 0,
@@ -300,24 +313,28 @@ class AppUsageService {
         'total_seconds': secs,
         'total_formatted': formatSeconds(secs),
       };
-    }
+    });
 
-    for (var app in afterLunchList) {
-      String pkg = app['package_name'];
-      String name = app['app_name'];
-      int secs = app['usage_seconds'] ?? 0;
+    appAfterDeltas.forEach((pkg, secs) {
+      final String friendlyName = _cleanAppName(pkg, '');
+      afterLunchList.add({
+        'package_name': pkg,
+        'app_name': friendlyName,
+        'usage_seconds': secs,
+        'usage_formatted': formatSeconds(secs),
+      });
 
       if (summaryMap.containsKey(pkg)) {
         int bSecs = summaryMap[pkg]!['before_lunch_seconds'] as int;
-        int total = (bSecs + secs).clamp(0, maxSessionSeconds);
+        int tot = bSecs + secs;
         summaryMap[pkg]!['after_lunch_seconds'] = secs;
         summaryMap[pkg]!['after_lunch_formatted'] = formatSeconds(secs);
-        summaryMap[pkg]!['total_seconds'] = total;
-        summaryMap[pkg]!['total_formatted'] = formatSeconds(total);
+        summaryMap[pkg]!['total_seconds'] = tot;
+        summaryMap[pkg]!['total_formatted'] = formatSeconds(tot);
       } else {
         summaryMap[pkg] = {
           'package_name': pkg,
-          'app_name': name,
+          'app_name': friendlyName,
           'before_lunch_seconds': 0,
           'before_lunch_formatted': '0s',
           'after_lunch_seconds': secs,
@@ -326,7 +343,10 @@ class AppUsageService {
           'total_formatted': formatSeconds(secs),
         };
       }
-    }
+    });
+
+    beforeLunchList.sort((a, b) => (b['usage_seconds'] as int).compareTo(a['usage_seconds'] as int));
+    afterLunchList.sort((a, b) => (b['usage_seconds'] as int).compareTo(a['usage_seconds'] as int));
 
     final List<Map<String, dynamic>> summaryList = summaryMap.values.toList();
     summaryList.sort((a, b) => (b['total_seconds'] as int).compareTo(a['total_seconds'] as int));
