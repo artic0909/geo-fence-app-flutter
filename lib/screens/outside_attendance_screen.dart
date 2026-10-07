@@ -309,6 +309,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         final nowIso = DateTime.now().toIso8601String();
         await prefs.setBool('is_outside_checked_in', true);
         await prefs.setString('outside_check_in_time', nowIso);
+        if (isRestricted) {
+          await AppUsageService.saveCheckInBaseline('outside_check_in');
+        }
         
         setState(() {
           _isOutsideCheckedIn = true;
@@ -382,6 +385,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         appUsagesPayload = await AppUsageService.getStructuredAppUsage(
           checkInTime,
           DateTime.now(),
+          keyPrefix: 'outside_check_in',
         );
       }
 

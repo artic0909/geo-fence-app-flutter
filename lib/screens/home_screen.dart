@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     _initializeApp();
 
     // Periodic check for lunch alerts
-    _lunchCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _lunchCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       if (_isCheckedIn && mounted) {
         final currentlyLunch = _isLunchTime();
         if (currentlyLunch) {
@@ -137,6 +137,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                 ),
               ),
             );
+            await AppUsageService.saveCheckInBaseline('check_in_lunch_start');
             _syncBeforeLunchUsage();
           }
           _wasLunchTime = true;
@@ -144,6 +145,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           if (_wasLunchTime) {
             _wasLunchTime = false;
             _lunchNotificationSent = false;
+            await AppUsageService.saveCheckInBaseline('check_in_lunch_end');
             final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
             flutterLocalNotificationsPlugin.show(
               id: 889,
@@ -443,6 +445,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         await prefs.setBool('is_checked_in', true);
         await prefs.setString('last_action_date', today);
         await prefs.setString('check_in_time', nowIso);
+        if (isRestricted) {
+          await AppUsageService.saveCheckInBaseline('check_in');
+        }
         
         setState(() {
           _isCheckedIn = true;
