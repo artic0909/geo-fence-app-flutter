@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../services/api_service.dart';
+import '../services/app_usage_service.dart';
 import 'dart:convert';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -19,11 +20,6 @@ import '../widgets/battery_tutorial_dialog.dart';
 import '../widgets/attendance_success_dialog.dart';
 import '../widgets/custom_alert_dialog.dart';
 import '../widgets/permission_dialog.dart';
-import '../widgets/kiosk_countdown_dialog.dart';
-import '../widgets/kiosk_grace_period_dialog.dart';
-import 'package:kiosk_mode/kiosk_mode.dart';
-import 'package:phone_state/phone_state.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class OutsideAttendanceScreen extends StatefulWidget {
   const OutsideAttendanceScreen({super.key});
@@ -49,19 +45,12 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
   late AnimationController _refreshController;
   bool _isMapRefreshing = false;
   Timer? _trackingTimer;
-  StreamSubscription<KioskMode>? _kioskSubscription;
-  DateTime? _kioskRequestedTime;
-  Timer? _kioskCheckTimer;
-  StreamSubscription<PhoneState>? _phoneStateSubscription;
-  bool _isHandlingCall = false;
   bool _isPipMode = false;
 
   static const MethodChannel _pipChannel = MethodChannel('smart.geofence/pip');
 
   void _updatePipState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isRestricted = prefs.getBool('phone_restriction') ?? false;
-    bool allowed = _isOutsideCheckedIn && !isRestricted;
+    bool allowed = _isOutsideCheckedIn;
     try {
       await _pipChannel.invokeMethod('setPipAllowed', {'allowed': allowed});
     } catch (e) {
@@ -95,82 +84,6 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     );
 
     _initializeApp();
-
-    _kioskSubscription = watchKioskMode().listen((mode) async {
-      if (mode == KioskMode.enabled) {
-        if (mounted) KioskGracePeriodDialog.hide(context);
-        _kioskRequestedTime = null;
-      } else if (mode == KioskMode.disabled && _isOutsideCheckedIn && !_isHandlingCall) {
-        final prefs = await SharedPreferences.getInstance();
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted && !_isChecking) {
-          debugPrint("User broke Kiosk Mode! Auto checking out (Outside)...");
-          await _handleOutsidePinningViolation();
-        }
-      }
-    });
-
-    _kioskCheckTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (_isOutsideCheckedIn && mounted) {
-        final prefs = await SharedPreferences.getInstance();
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        
-        if (isRestricted && !_isChecking && !_isHandlingCall) {
-          final mode = await getKioskMode();
-          if (mode == KioskMode.disabled) {
-            if (_kioskRequestedTime != null) {
-              final diff = DateTime.now().difference(_kioskRequestedTime!).inSeconds;
-              if (diff > 10) {
-                debugPrint("User denied or broke Kiosk Mode silently! Auto checking out (Outside)...");
-                await _handleOutsidePinningViolation();
-              }
-            }
-          } else {
-            // Reset requested time once successfully enabled
-            _kioskRequestedTime = null;
-          }
-        }
-      }
-    });
-
-    _phoneStateSubscription = PhoneState.stream.listen((event) async {
-      if (event.status == PhoneStateStatus.CALL_INCOMING) {
-        _isHandlingCall = true;
-        if (mounted) KioskGracePeriodDialog.hide(context);
-        _kioskRequestedTime = null;
-        await stopKioskMode();
-      } else if (event.status == PhoneStateStatus.CALL_ENDED) {
-        _isHandlingCall = false;
-        if (_isOutsideCheckedIn) {
-          final prefs = await SharedPreferences.getInstance();
-          final isRestricted = prefs.getBool('phone_restriction') ?? false;
-          if (isRestricted) {
-            if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-              await Future.delayed(const Duration(milliseconds: 1500));
-              if (!_isHandlingCall) {
-                _kioskRequestedTime = DateTime.now();
-                if (mounted) {
-                  KioskGracePeriodDialog.show(
-                    context, 
-                    _kioskRequestedTime!,
-                    maxSeconds: 10,
-                    onBackOrDismiss: _handleOutsidePinningViolation,
-                  );
-                }
-                await startKioskMode();
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  Future<void> _handleOutsidePinningViolation() async {
-    if (_isOutsideCheckedIn && !_isChecking && mounted) {
-      debugPrint("Outside pinning violation detected! Auto checking out...");
-      await _outsideCheckOut(isAutoTrap: true);
-    }
   }
 
   Future<void> _initializeApp() async {
@@ -192,57 +105,13 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
     _pulseController.dispose();
     _refreshController.dispose();
     _trackingTimer?.cancel();
-    _kioskSubscription?.cancel();
-    _phoneStateSubscription?.cancel();
-    _kioskCheckTimer?.cancel();
     _reasonController.dispose();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) async {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      if (_isOutsideCheckedIn && !_isHandlingCall) {
-        final prefs = await SharedPreferences.getInstance();
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted) {
-          final mode = await getKioskMode();
-          if (mode == KioskMode.disabled) {
-            await Future.delayed(const Duration(milliseconds: 500));
-            if (!_isHandlingCall) {
-              _kioskRequestedTime ??= DateTime.now();
-              if (mounted) {
-                KioskGracePeriodDialog.show(
-                  context, 
-                  _kioskRequestedTime!,
-                  maxSeconds: 10,
-                  onBackOrDismiss: _handleOutsidePinningViolation,
-                );
-              }
-              await startKioskMode();
-            }
-          }
-        }
-      }
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
-      if (_isOutsideCheckedIn && !_isHandlingCall && _kioskRequestedTime != null) {
-        final prefs = await SharedPreferences.getInstance();
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted) {
-          final mode = await getKioskMode();
-          if (mode == KioskMode.disabled) {
-            debugPrint("User left the app without accepting pinning (Outside)! Auto checking out...");
-            await _handleOutsidePinningViolation();
-          }
-        }
-      }
-    }
-  }
-
   void _startTracking() {
     _trackingTimer?.cancel();
-    _trackingTimer = Timer.periodic(const Duration(seconds:30), (timer) {
+    _trackingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _sendLocationUpdate();
     });
   }
@@ -252,20 +121,19 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       final pos = await LocationService.getCurrentLocation();
       await ApiService.updateLocation(pos.latitude, pos.longitude);
     } catch (e) {
-      debugPrint('Outside Tracking Update Failed: $e');
+      debugPrint('Tracking Update Failed: $e');
     }
   }
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
+    
     setState(() {
       _userName = prefs.getString('user_name') ?? 'User Name';
       _orgName = prefs.getString('org_name') ?? 'Official Organization';
       _isOutsideCheckedIn = prefs.getBool('is_outside_checked_in') ?? false;
-      if (_isOutsideCheckedIn) {
-        _status = 'You are in an active Outside Session';
-      }
+      _lastActionDate = prefs.getString('last_action_date') ?? '';
     });
 
     try {
@@ -275,28 +143,50 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         final data = json.decode(response.body);
         final status = data['attendance_status'];
         final today = DateTime.now().toIso8601String().split('T')[0];
-        
+
         setState(() {
-          _isOutsideCheckedIn = status['is_outside'] ?? false;
+          _userName = data['employee_name'] ?? _userName;
+          _orgName = data['business_name'] ?? data['admin_name'] ?? _orgName;
           _isSubscriptionActive = data['admin_subscription_status'] != 'inactive';
           
+          if (data['phone_restriction'] != null) {
+            prefs.setBool('phone_restriction', data['phone_restriction']);
+          }
+
+          if (status['is_outside'] == true) {
+             _isOutsideCheckedIn = status['is_checked_in'] ?? false;
+          } else if (status['is_checked_in'] == true) {
+             _isOutsideCheckedIn = false;
+          }
+
           if (status['is_completed'] == true) {
             _lastActionDate = today;
+          } else if (!_isOutsideCheckedIn) {
+            _lastActionDate = '';
           }
 
           if (_isOutsideCheckedIn) {
-            _status = 'Outside Session Active!';
+            _status = 'You are active in Outside Duty';
           } else if (_lastActionDate == today) {
-            _status = 'Outside Attendance completed for today';
+            _status = 'Outside Attendance Completed';
           } else {
             _status = 'Ready for Outside Action';
           }
         });
+
         await prefs.setBool('is_outside_checked_in', _isOutsideCheckedIn);
+        await prefs.setString('last_action_date', _lastActionDate);
         _updatePipState();
+
+        if (status['is_outside'] != true && status['is_checked_in'] == true && mounted) {
+           Navigator.pushReplacement(
+             context,
+             MaterialPageRoute(builder: (context) => const HomeScreen()),
+           );
+        }
       }
     } catch (e) {
-      debugPrint('Sync error in Outside screen: $e');
+      debugPrint('Sync error: $e');
     }
   }
 
@@ -391,7 +281,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       });
       _mapController.move(_currentLocation!, 17);
 
-      final photo = await CameraService.takePicture();
+      final File? photo = await CameraService.takePicture();
       if (!mounted) return;
       if (photo == null) {
         setState(() => _status = 'Cancelled');
@@ -406,34 +296,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       final isRestricted = prefs.getBool('phone_restriction') ?? false;
 
       if (isRestricted) {
-        await Permission.phone.request();
-      }
-
-      // 1. Enforce Kiosk Mode BEFORE API Call
-      if (isRestricted && mounted) {
-        setState(() => _status = 'Applying Security...');
-        bool kioskEnabled = false;
-
-        await KioskCountdownDialog.show(context, onComplete: () async {
-          _kioskRequestedTime = DateTime.now();
-          await startKioskMode();
-        });
-
-        // Wait for up to 15 seconds for user to accept the system prompt
-        for (int i = 0; i < 15; i++) {
-          await Future.delayed(const Duration(seconds: 1));
-          final mode = await getKioskMode();
-          if (mode == KioskMode.enabled) {
-            kioskEnabled = true;
-            _kioskRequestedTime = null; // Successfully enabled
-            break;
-          }
-        }
-
-        if (!kioskEnabled) {
-          _showError('You must allow app pinning to check in outside.');
-          return;
-        }
+        await AppUsageService.checkPermission();
       }
 
       setState(() => _status = 'Verifying Outside Check-in...');
@@ -443,7 +306,9 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       if (!mounted) return;
 
       if (res.statusCode == 200 || res.statusCode == 201) {
+        final nowIso = DateTime.now().toIso8601String();
         await prefs.setBool('is_outside_checked_in', true);
+        await prefs.setString('outside_check_in_time', nowIso);
         
         setState(() {
           _isOutsideCheckedIn = true;
@@ -464,23 +329,20 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           );
         }
       } else {
-        if (isRestricted) {
-          await stopKioskMode(); // Unpin if check-in fails
-        }
         final error = json.decode(res.body)['error'] ?? 'Outside Check-in Rejected';
         _showError(error);
       }
     } catch (e) {
-      _showError('Connection error');
+      _showError('Connection error: $e');
     } finally {
       setState(() => _isChecking = false);
     }
   }
 
-  Future<void> _outsideCheckOut({bool isAutoTrap = false}) async {
+  Future<void> _outsideCheckOut() async {
     setState(() {
       _isChecking = true;
-      _status = isAutoTrap ? 'Violation Detected. Checking Out...' : 'Locking GPS...';
+      _status = 'Locking GPS...';
     });
     try {
       final pos = await LocationService.getCurrentLocation();
@@ -491,43 +353,55 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       });
       _mapController.move(_currentLocation!, 17);
 
-      File? photo;
-      
-      if (!isAutoTrap) {
-        photo = await CameraService.takePicture();
-        if (!mounted) return;
-        if (photo == null) {
-          setState(() => _status = 'Cancelled');
-          return;
-        }
+      final File? photo = await CameraService.takePicture();
+      if (!mounted) return;
+      if (photo == null) {
+        setState(() => _status = 'Cancelled');
+        return;
       }
 
       setState(() => _status = 'Detecting Address...');
       final String locationDesc = await _getAddress(pos.latitude, pos.longitude);
       if (!mounted) return;
 
+      final prefs = await SharedPreferences.getInstance();
+      final isRestricted = prefs.getBool('phone_restriction') ?? false;
+      List<Map<String, dynamic>> appUsages = [];
+
+      // Track app usage if phone restriction is enabled
+      if (isRestricted) {
+        setState(() => _status = 'Compiling App Usage...');
+        final checkInTimeStr = prefs.getString('outside_check_in_time');
+        DateTime checkInTime;
+        if (checkInTimeStr != null && checkInTimeStr.isNotEmpty) {
+          checkInTime = DateTime.tryParse(checkInTimeStr) ?? DateTime.now().subtract(const Duration(hours: 1));
+        } else {
+          checkInTime = DateTime.now().subtract(const Duration(hours: 1));
+        }
+
+        appUsages = await AppUsageService.getAppUsageList(checkInTime, DateTime.now());
+      }
+
       setState(() => _status = 'Processing Outside Check-out...');
       final res = await ApiService.outsideCheckOut(
-        pos.latitude, pos.longitude, photo, locationDesc, null, // No reason needed during checkout
-        isAutoTrap: isAutoTrap
+        pos.latitude, 
+        pos.longitude, 
+        photo, 
+        locationDesc, 
+        null,
+        appUsages: appUsages,
       );
       if (!mounted) return;
 
       if (res.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_outside_checked_in', false);
+        await prefs.remove('outside_check_in_time');
         
         setState(() {
           _isOutsideCheckedIn = false;
         });
         _updatePipState();
 
-        // Ensure Kiosk Mode is stopped on Check-out
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted) {
-          await stopKioskMode();
-        }
-        
         final today = DateTime.now().toIso8601String().split('T')[0];
         setState(() {
           _isOutsideCheckedIn = false;
@@ -537,26 +411,18 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         });
 
         if (mounted) {
-          if (isAutoTrap) {
-            CustomAlertDialog.show(
-              context, 
-              title: "Policy Violation", 
-              message: "You unpinned the app. You have been automatically checked out.",
-              type: AlertType.error
-            );
-          } else {
-            AttendanceSuccessDialog.show(
-              context, 
-              title: "Outside Session Ended", 
-              message: "Your off-site duty has been logged. Return safely!"
-            );
-          }
+          AttendanceSuccessDialog.show(
+            context, 
+            title: "Outside Session Ended", 
+            message: "Your off-site duty has been logged. Return safely!"
+          );
         }
       } else {
-        _showError('Outside Check-out Rejected');
+        final error = json.decode(res.body)['error'] ?? 'Outside Check-out Rejected';
+        _showError(error);
       }
     } catch (e) {
-      _showError('Connection error');
+      _showError('Connection error: $e');
     } finally {
       setState(() => _isChecking = false);
     }
@@ -647,90 +513,80 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       );
     }
 
-
     return PopScope(
       canPop: !_isOutsideCheckedIn && !isCompleted,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        if (_isOutsideCheckedIn) {
-          final prefs = await SharedPreferences.getInstance();
-          final isRestricted = prefs.getBool('phone_restriction') ?? false;
-          if (isRestricted && !_isHandlingCall) {
-            final mode = await getKioskMode();
-            if (mode == KioskMode.disabled) {
-              debugPrint("User pressed back while unpinned (Outside)! Auto checking out...");
-              await _handleOutsidePinningViolation();
-            }
-          }
-        }
-      },
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(
-        children: [
-          Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
-          Positioned.fill(child: Opacity(opacity: 0.15, child: Image.asset('assets/map.png', fit: BoxFit.cover))),
+          children: [
+            Positioned.fill(child: CustomPaint(painter: FlagBannerPainter(saffron: saffron, green: green))),
+            Positioned.fill(child: Opacity(opacity: 0.15, child: Image.asset('assets/map.png', fit: BoxFit.cover))),
 
-          Column(
-            children: [
-              _buildTopBar(saffron, isCompleted),
-              Expanded(
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Column(
-                        children: [
-                          _buildSatelliteMap(saffron),
-                          _buildStatusRow(isCompleted),
-                          const SizedBox(height: 30),
-                          if (!_isOutsideCheckedIn && !isCompleted) _buildReasonInput(saffron),
-                          const SizedBox(height: 10),
-                          _buildAttendanceButton(Colors.orange, isCompleted),
-                          const SizedBox(height: 30),
-                        ],
+            Column(
+              children: [
+                _buildTopBar(saffron, isCompleted),
+                Expanded(
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Column(
+                          children: [
+                            _buildSatelliteMap(saffron),
+                            _buildStatusRow(isCompleted),
+                            const SizedBox(height: 30),
+                            if (!_isOutsideCheckedIn && !isCompleted) _buildReasonInput(saffron),
+                            const SizedBox(height: 10),
+                            _buildAttendanceButton(Colors.orange, isCompleted),
+                            const SizedBox(height: 30),
+                          ],
+                        ),
                       ),
-                    ),
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          _buildGuideSection(saffron),
-                          const SizedBox(height: 25),
-                        ],
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            _buildGuideSection(saffron),
+                            const SizedBox(height: 25),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
   Widget _buildTopBar(Color saffron, bool isCompleted) {
     return Container(
       padding: const EdgeInsets.only(top: 50, left: 24, right: 24, bottom: 20),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)]),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+      ),
       child: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Row(
             children: [
               if (!_isOutsideCheckedIn && !isCompleted)
-                IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20), onPressed: () {
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  } else {
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-                  }
-                }),
-              if (!_isOutsideCheckedIn && !isCompleted) const SizedBox(width: 5),
-              CircleAvatar(backgroundColor: saffron.withValues(alpha: 0.1), child: Icon(Icons.person_rounded, color: saffron)),
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                    }
+                  },
+                ),
+              CircleAvatar(backgroundColor: Colors.orange.withValues(alpha: 0.1), child: const Icon(Icons.directions_run_rounded, color: Colors.orange)),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
@@ -752,7 +608,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
   Widget _buildSatelliteMap(Color saffron) {
     return Container(
-      height: 280,
+      height: 300,
       width: double.infinity,
       decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)]),
       child: Stack(
@@ -776,7 +632,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
                             builder: (context, child) => Container(
                               width: 30 + (30 * _pulseController.value),
                               height: 30 + (30 * _pulseController.value),
-                              decoration: BoxDecoration(shape: BoxShape.circle, color: saffron.withValues(alpha: 1 - _pulseController.value)),
+                              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.orange.withValues(alpha: 1 - _pulseController.value)),
                             ),
                           ),
                           const Icon(Icons.location_on, color: Colors.orange, size: 35),
@@ -794,7 +650,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))], border: Border.all(color: Colors.white, width: 2)),
-                child: RotationTransition(turns: _refreshController, child: Icon(Icons.refresh_rounded, color: saffron, size: 20)),
+                child: RotationTransition(turns: _refreshController, child: const Icon(Icons.refresh_rounded, color: Colors.orange, size: 20)),
               ),
             ),
           ),

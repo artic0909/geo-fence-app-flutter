@@ -1,9 +1,7 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'track.dart';
-import 'admin_drawer.dart';
-import '../widgets/admin_loader.dart';
 
 class TodayPresentScreen extends StatefulWidget {
   const TodayPresentScreen({super.key});
@@ -16,56 +14,191 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
   bool _isLoading = true;
   List<dynamic> _employees = [];
   List<dynamic> _filteredEmployees = [];
+  String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadPresentEmployees();
-    _searchController.addListener(_onSearchChanged);
+    _fetchPresentEmployees();
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _onSearchChanged() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      if (query.isEmpty) {
-        _filteredEmployees = _employees;
-      } else {
-        _filteredEmployees = _employees.where((emp) {
-          final name = (emp['name'] ?? '').toLowerCase();
-          final email = (emp['email'] ?? '').toLowerCase();
-          return name.contains(query) || email.contains(query);
-        }).toList();
-      }
-    });
-  }
-
-  Future<void> _loadPresentEmployees() async {
+  Future<void> _fetchPresentEmployees() async {
     setState(() => _isLoading = true);
     try {
       final response = await ApiService.getTodayPresent();
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (mounted) {
-          setState(() {
-            _employees = data['present_employees'] ?? [];
-            _filteredEmployees = _employees;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading present employees: $e');
-    } finally {
-      if (mounted) {
+        setState(() {
+          _employees = data['present_employees'] ?? [];
+          _filteredEmployees = _employees;
+          _isLoading = false;
+        });
+      } else {
         setState(() => _isLoading = false);
       }
+    } catch (e) {
+      debugPrint("Error fetching present employees: $e");
+      setState(() => _isLoading = false);
     }
+  }
+
+  void _filterEmployees(String query) {
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredEmployees = _employees;
+      } else {
+        _filteredEmployees = _employees.where((emp) {
+          final name = (emp['name'] ?? '').toString().toLowerCase();
+          final id = (emp['employee_id'] ?? '').toString().toLowerCase();
+          final loc = (emp['location'] ?? '').toString().toLowerCase();
+          final q = query.toLowerCase();
+          return name.contains(q) || id.contains(q) || loc.contains(q);
+        }).toList();
+      }
+    });
+  }
+
+  void _showAppUsageDialog(BuildContext context, String employeeName, dynamic usages) {
+    if (usages == null || (usages is! List) || usages.isEmpty) {
+      return;
+    }
+
+    const Color bgDark = Color(0xFF121212);
+    const Color cardDark = Color(0xFF1E1E1E);
+    const Color goldLight = Color(0xFFF3E5AB);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardDark,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          maxChildSize: 0.85,
+          minChildSize: 0.4,
+          expand: false,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_android_rounded, color: Colors.blueAccent, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'App Usage Track Record',
+                              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              employeeName,
+                              style: const TextStyle(color: goldLight, fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white12),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Apps used during work session (${usages.length}):',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      itemCount: usages.length,
+                      itemBuilder: (context, idx) {
+                        final item = usages[idx];
+                        final appName = item['app_name'] ?? item['package_name'] ?? 'Unknown App';
+                        final packageName = item['package_name'] ?? '';
+                        final formatted = item['usage_formatted'] ?? '${item['usage_seconds'] ?? 0}s';
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: bgDark,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[850]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blueAccent.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.apps_rounded, color: Colors.blueAccent, size: 18),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      appName,
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                    ),
+                                    if (packageName.isNotEmpty)
+                                      Text(
+                                        packageName,
+                                        style: TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'monospace'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blueAccent.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  formatted,
+                                  style: const TextStyle(color: Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -73,60 +206,69 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
     const Color bgDark = Color(0xFF121212);
     const Color cardDark = Color(0xFF1E1E1E);
     const Color goldMain = Color(0xFFD4AF37);
-    const Color goldLight = Color(0xFFF9F1CC);
+    const Color goldLight = Color(0xFFF3E5AB);
 
     return Scaffold(
+      backgroundColor: bgDark,
+      appBar: AppBar(
         backgroundColor: bgDark,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('PRESENT TODAY', style: TextStyle(fontWeight: FontWeight.w800, color: goldMain, letterSpacing: 1.5, fontSize: 16)),
-          backgroundColor: bgDark,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: goldMain),
-          actions: [
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu_open, color: goldMain),
-                onPressed: () => Scaffold.of(context).openEndDrawer(),
-              ),
-            ),
-          ],
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+          onPressed: () => Navigator.pop(context),
         ),
-        endDrawer: const AdminDrawer(currentRoute: 'TodayPresent'),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Search by employee name or email...',
-                  hintStyle: TextStyle(color: Colors.grey[600]),
-                  prefixIcon: const Icon(Icons.search, color: goldMain),
-                  filled: true,
-                  fillColor: cardDark,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(color: goldMain, width: 1.5),
+        title: const Text(
+          "Today's Present",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1),
+        ),
+        centerTitle: true,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: goldMain))
+          : Column(
+              children: [
+                // Search Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: cardDark,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.grey[850]!),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: _filterEmployees,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search by name, ID, location...',
+                        hintStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        prefixIcon: const Icon(Icons.search, color: goldMain),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, color: Colors.grey),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _filterEmployees('');
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? const AdminLoader()
-                  : _filteredEmployees.isEmpty
+
+                // Employee List
+                Expanded(
+                  child: _filteredEmployees.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.person_off, size: 60, color: Colors.grey[800]),
-                              const SizedBox(height: 15),
+                              Icon(Icons.person_off_outlined, size: 60, color: Colors.grey[700]),
+                              const SizedBox(height: 10),
                               Text("No employees found", style: TextStyle(color: Colors.grey[500], fontSize: 16, letterSpacing: 1)),
                             ],
                           ),
@@ -136,10 +278,10 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
                           itemCount: _filteredEmployees.length,
                           itemBuilder: (context, index) {
                             final emp = _filteredEmployees[index];
-                            final dynamic rawPrivacy = emp['is_privacy_violation'];
-                            final bool isPrivacyViolation = rawPrivacy == true || rawPrivacy == 1 || rawPrivacy == '1';
                             final bool isOutside = (emp['type'] ?? '') == 'Outside';
                             final bool isCheckedOut = emp['check_out'] != null;
+                            final dynamic usages = emp['app_usages'];
+                            final bool hasAppUsages = usages != null && (usages is List) && usages.isNotEmpty;
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 20),
@@ -147,12 +289,12 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
                                 color: cardDark,
                                 borderRadius: BorderRadius.circular(15),
                                 border: Border.all(
-                                  color: isPrivacyViolation ? Colors.redAccent.withValues(alpha: 0.5) : Colors.grey[850]!,
-                                  width: isPrivacyViolation ? 1.5 : 1,
+                                  color: Colors.grey[850]!,
+                                  width: 1,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: isPrivacyViolation ? Colors.redAccent.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.3),
+                                    color: Colors.black.withValues(alpha: 0.3),
                                     blurRadius: 10,
                                     offset: const Offset(0, 5),
                                   ),
@@ -187,24 +329,28 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
                                                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isOutside ? Colors.orange : Colors.green),
                                                     ),
                                                   ),
-                                                  if (isPrivacyViolation)
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.red.withValues(alpha: 0.1),
-                                                        border: Border.all(color: Colors.red),
-                                                        borderRadius: BorderRadius.circular(20),
-                                                      ),
-                                                      child: const Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
-                                                          SizedBox(width: 4),
-                                                          Text(
-                                                            'Privacy Violation',
-                                                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red),
-                                                          ),
-                                                        ],
+                                                  if (hasAppUsages)
+                                                    InkWell(
+                                                      onTap: () => _showAppUsageDialog(context, emp['name'] ?? 'Employee', usages),
+                                                      borderRadius: BorderRadius.circular(20),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.blueAccent.withValues(alpha: 0.15),
+                                                          border: Border.all(color: Colors.blueAccent),
+                                                          borderRadius: BorderRadius.circular(20),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            const Icon(Icons.phone_android_rounded, size: 12, color: Colors.blueAccent),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              'App Usage (${usages.length})',
+                                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                                                            ),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
                                                 ],
@@ -295,9 +441,9 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
                             );
                           },
                         ),
+                ),
+              ],
             ),
-          ],
-        ),
     );
   }
 

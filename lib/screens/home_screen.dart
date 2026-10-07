@@ -7,6 +7,7 @@ import 'dart:io';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
 import '../services/api_service.dart';
+import '../services/app_usage_service.dart';
 import 'dart:convert';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -20,11 +21,6 @@ import 'package:geolocator/geolocator.dart';
 import '../services/background_location_service.dart';
 import 'role_selection_screen.dart';
 import '../widgets/permission_dialog.dart';
-import '../widgets/kiosk_countdown_dialog.dart';
-import '../widgets/kiosk_grace_period_dialog.dart';
-import 'package:kiosk_mode/kiosk_mode.dart';
-import 'package:phone_state/phone_state.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -39,17 +35,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   bool _isChecking = false;
   bool _isCheckedIn = false;
   bool _isSubscriptionActive = true;
-  
-  DateTime? _kioskRequestedTime;
-  Timer? _kioskCheckTimer;
 
   bool _wasLunchTime = false;
   bool _lunchNotificationSent = false;
-  int _currentGracePeriodSeconds = 10;
+  Timer? _lunchCheckTimer;
 
   String _status = 'Ready for action';
   String _userName = 'User Name';
-  String _orgName = 'Ranihati Construction Private Limited';
+  String _orgName = 'Official Organization';
   String _lastActionDate = ''; 
   LatLng? _currentLocation;
   final MapController _mapController = MapController();
@@ -60,42 +53,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   late AnimationController _refreshController;
   bool _isMapRefreshing = false;
   Timer? _trackingTimer;
-  StreamSubscription<KioskMode>? _kioskSubscription;
-  StreamSubscription<PhoneState>? _phoneStateSubscription;
-  bool _isHandlingCall = false;
   bool _isPipMode = false;
 
   static const MethodChannel _pipChannel = MethodChannel('smart.geofence/pip');
 
   void _updatePipState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isRestricted = prefs.getBool('phone_restriction') ?? false;
-    bool allowed = _isCheckedIn && !isRestricted;
+    bool allowed = _isCheckedIn;
     try {
       await _pipChannel.invokeMethod('setPipAllowed', {'allowed': allowed});
     } catch (e) {
       debugPrint("PIP Error: $e");
-    }
-  }
-
-  Future<void> _handlePinningViolation() async {
-    if (_isCheckedIn && !_isChecking && mounted) {
-      debugPrint("Pinning violation detected! Auto checking out...");
-      final pos = _currentLocation != null
-          ? Position(
-              latitude: _currentLocation!.latitude,
-              longitude: _currentLocation!.longitude,
-              timestamp: DateTime.now(),
-              accuracy: 0.0,
-              altitude: 0.0,
-              heading: 0.0,
-              speed: 0.0,
-              speedAccuracy: 0.0,
-              altitudeAccuracy: 0.0,
-              headingAccuracy: 0.0,
-            )
-          : await LocationService.getCurrentLocation();
-      await _checkOut(pos, isAutoTrap: true);
     }
   }
 
@@ -126,139 +93,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
     _initializeApp();
 
-    _kioskSubscription = watchKioskMode().listen((mode) async {
-      if (mode == KioskMode.enabled) {
-        if (mounted) KioskGracePeriodDialog.hide(context);
-        _kioskRequestedTime = null;
-        _currentGracePeriodSeconds = 10;
-      } else if (mode == KioskMode.disabled && _isCheckedIn && !_isHandlingCall) {
-        final prefs = await SharedPreferences.getInstance();
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted && mounted && !_isChecking && !_isLunchTime()) {
-          debugPrint("User broke Kiosk Mode! Auto checking out...");
-          await _handlePinningViolation();
-        }
-      }
-    });
-
-    _kioskCheckTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+    // Periodic check for lunch alerts
+    _lunchCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (_isCheckedIn && mounted) {
-        final prefs = await SharedPreferences.getInstance();
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        
-        if (isRestricted && !_isChecking && !_isHandlingCall) {
-          bool currentlyLunch = _isLunchTime();
-          if (currentlyLunch) {
-            final mode = await getKioskMode();
-            if (mode == KioskMode.enabled) {
-              await stopKioskMode();
-            }
-            final endStr = _selectedGeofence?['lunch_end_time'];
-            if (endStr != null && !_lunchNotificationSent) {
-               final parts = endStr.split(':');
-               final now = DateTime.now();
-               final endTime = DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
-               final diff = endTime.difference(now).inSeconds;
-               if (diff <= 300 && diff > 0) {
-                 _lunchNotificationSent = true;
-                 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-                 flutterLocalNotificationsPlugin.show(
-                   id: 888,
-                   title: 'Lunch Time Ending in 5 minutes ⚠️',
-                   body: 'End lunch time go back to the app',
-                   notificationDetails: const NotificationDetails(
-                     android: AndroidNotificationDetails(
-                       'lunch_alerts',
-                       'Lunch Alerts',
-                       importance: Importance.max,
-                       priority: Priority.high,
-                     )
-                   )
-                 );
-               }
-            }
-            if (!_wasLunchTime) {
-               final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-               flutterLocalNotificationsPlugin.show(
-                 id: 887,
-                 title: 'Lunch Time Started 🍔',
-                 body: 'App restrictions are temporarily lifted. Enjoy your lunch!',
-                 notificationDetails: const NotificationDetails(
-                   android: AndroidNotificationDetails(
-                     'lunch_alerts',
-                     'Lunch Alerts',
-                     importance: Importance.max,
-                     priority: Priority.high,
-                   )
-                 )
-               );
-            }
-
-            _wasLunchTime = true;
-            return;
-          } else {
-            if (_wasLunchTime) {
-              _wasLunchTime = false;
-              _lunchNotificationSent = false;
-              _currentGracePeriodSeconds = 60;
-              _kioskRequestedTime = DateTime.now();
-              if (mounted) {
-                KioskGracePeriodDialog.show(
-                  context, 
-                  _kioskRequestedTime!, 
-                  maxSeconds: 60,
-                  onBackOrDismiss: _handlePinningViolation,
-                );
-              }
+        final currentlyLunch = _isLunchTime();
+        if (currentlyLunch) {
+          final endStr = _selectedGeofence?['lunch_end_time'];
+          if (endStr != null && !_lunchNotificationSent) {
+            final parts = endStr.split(':');
+            final now = DateTime.now();
+            final endTime = DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+            final diff = endTime.difference(now).inSeconds;
+            if (diff <= 300 && diff > 0) {
+              _lunchNotificationSent = true;
+              final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+              flutterLocalNotificationsPlugin.show(
+                id: 888,
+                title: 'Lunch Time Ending in 5 minutes ⚠️',
+                body: 'End lunch time and return to duties',
+                notificationDetails: const NotificationDetails(
+                  android: AndroidNotificationDetails(
+                    'lunch_alerts',
+                    'Lunch Alerts',
+                    importance: Importance.max,
+                    priority: Priority.high,
+                  ),
+                ),
+              );
             }
           }
-          
-          final mode = await getKioskMode();
-          if (mode == KioskMode.disabled) {
-            if (_kioskRequestedTime != null) {
-              final diff = DateTime.now().difference(_kioskRequestedTime!).inSeconds;
-              if (diff > _currentGracePeriodSeconds) {
-                debugPrint("User denied or broke Kiosk Mode silently! Auto checking out...");
-                await _handlePinningViolation();
-              }
-            }
-          } else {
-            // Reset requested time once successfully enabled
-            _kioskRequestedTime = null;
-            _currentGracePeriodSeconds = 10;
+          if (!_wasLunchTime) {
+            final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+            flutterLocalNotificationsPlugin.show(
+              id: 887,
+              title: 'Lunch Time Started 🍔',
+              body: 'Enjoy your lunch break!',
+              notificationDetails: const NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'lunch_alerts',
+                  'Lunch Alerts',
+                  importance: Importance.max,
+                  priority: Priority.high,
+                ),
+              ),
+            );
           }
-        }
-      }
-    });
-
-    _phoneStateSubscription = PhoneState.stream.listen((event) async {
-      if (event.status == PhoneStateStatus.CALL_INCOMING) {
-        _isHandlingCall = true;
-        if (mounted) KioskGracePeriodDialog.hide(context);
-        _kioskRequestedTime = null;
-        await stopKioskMode();
-      } else if (event.status == PhoneStateStatus.CALL_ENDED) {
-        _isHandlingCall = false;
-        if (_isCheckedIn) {
-          final prefs = await SharedPreferences.getInstance();
-          final isRestricted = prefs.getBool('phone_restriction') ?? false;
-          if (isRestricted) {
-            if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-              await Future.delayed(const Duration(milliseconds: 1500));
-              if (!_isHandlingCall && !_isLunchTime()) {
-                _kioskRequestedTime = DateTime.now();
-                _currentGracePeriodSeconds = 10;
-                if (mounted) {
-                  KioskGracePeriodDialog.show(
-                    context, 
-                    _kioskRequestedTime!,
-                    maxSeconds: 10,
-                    onBackOrDismiss: _handlePinningViolation,
-                  );
-                }
-                await startKioskMode();
-              }
-            }
+          _wasLunchTime = true;
+        } else {
+          if (_wasLunchTime) {
+            _wasLunchTime = false;
+            _lunchNotificationSent = false;
           }
         }
       }
@@ -285,52 +169,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     _pulseController.dispose();
     _refreshController.dispose();
     _trackingTimer?.cancel();
-    _kioskSubscription?.cancel();
-    _phoneStateSubscription?.cancel();
-    _kioskCheckTimer?.cancel();
+    _lunchCheckTimer?.cancel();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) async {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      if (_isCheckedIn && !_isHandlingCall) {
-        final prefs = await SharedPreferences.getInstance();
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted) {
-          final mode = await getKioskMode();
-          if (mode == KioskMode.disabled) {
-            await Future.delayed(const Duration(milliseconds: 500));
-            if (!_isHandlingCall && !_isLunchTime()) {
-              _kioskRequestedTime ??= DateTime.now();
-              _currentGracePeriodSeconds = 10;
-              if (mounted) {
-                KioskGracePeriodDialog.show(
-                  context, 
-                  _kioskRequestedTime!,
-                  maxSeconds: _currentGracePeriodSeconds,
-                  onBackOrDismiss: _handlePinningViolation,
-                );
-              }
-              await startKioskMode();
-            }
-          }
-        }
-      }
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
-      if (_isCheckedIn && !_isHandlingCall && !_isLunchTime() && _kioskRequestedTime != null) {
-        final prefs = await SharedPreferences.getInstance();
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted) {
-          final mode = await getKioskMode();
-          if (mode == KioskMode.disabled) {
-            debugPrint("User left the app without accepting pinning! Auto checking out...");
-            await _handlePinningViolation();
-          }
-        }
-      }
-    }
   }
 
   bool _isLunchTime() {
@@ -457,7 +297,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     try {
       final pos = await LocationService.getCurrentLocation();
       await ApiService.updateLocation(pos.latitude, pos.longitude);
-      // Backend handles the radius check and storage
     } catch (e) {
       debugPrint('Tracking Update Failed: $e');
     }
@@ -535,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     try {
       _mapController.move(_currentLocation!, 17);
 
-      final photo = await CameraService.takePicture();
+      final File? photo = await CameraService.takePicture();
       if (!mounted) return;
       if (photo == null) {
         setState(() => _status = 'Cancelled');
@@ -545,35 +384,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       final prefs = await SharedPreferences.getInstance();
       final isRestricted = prefs.getBool('phone_restriction') ?? false;
 
+      // If phone restriction is active, prompt usage permission check
       if (isRestricted) {
-        await Permission.phone.request();
-      }
-
-      // 1. Enforce Kiosk Mode BEFORE API Call
-      if (isRestricted && mounted) {
-        setState(() => _status = 'Applying Security...');
-        bool kioskEnabled = false;
-
-        await KioskCountdownDialog.show(context, onComplete: () async {
-          _kioskRequestedTime = DateTime.now();
-          await startKioskMode();
-        });
-
-        // Wait for up to 15 seconds for user to accept the system prompt
-        for (int i = 0; i < 15; i++) {
-          await Future.delayed(const Duration(seconds: 1));
-          final mode = await getKioskMode();
-          if (mode == KioskMode.enabled) {
-            kioskEnabled = true;
-            _kioskRequestedTime = null; // Successfully enabled
-            break;
-          }
-        }
-
-        if (!kioskEnabled) {
-          _showError('You must allow app pinning to check in.');
-          return;
-        }
+        await AppUsageService.checkPermission();
       }
 
       setState(() => _status = 'Verifying Check-in...');
@@ -581,9 +394,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       if (!mounted) return;
 
       if (res.statusCode == 200) {
-        final today = DateTime.now().toIso8601String().split('T')[0];
+        final nowIso = DateTime.now().toIso8601String();
+        final today = nowIso.split('T')[0];
         await prefs.setBool('is_checked_in', true);
         await prefs.setString('last_action_date', today);
+        await prefs.setString('check_in_time', nowIso);
         
         setState(() {
           _isCheckedIn = true;
@@ -605,9 +420,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           );
         }
       } else {
-        if (isRestricted) {
-          await stopKioskMode(); // Unpin if check-in fails
-        }
         final error = json.decode(res.body)['error'] ?? 'Check-in Rejected';
         _showError(error);
       }
@@ -618,43 +430,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     }
   }
 
-  Future<void> _checkOut(Position pos, {bool isAutoTrap = false}) async {
+  Future<void> _checkOut(Position pos) async {
     setState(() {
       _isChecking = true;
-      _status = isAutoTrap ? 'Violation Detected. Checking Out...' : 'GPS Locked. Take Selfie';
+      _status = 'GPS Locked. Take Selfie';
       _currentLocation = LatLng(pos.latitude, pos.longitude);
     });
     
     try {
       _mapController.move(_currentLocation!, 17);
 
-      File? photo;
-      
-      if (!isAutoTrap) {
-        photo = await CameraService.takePicture();
-        if (!mounted) return;
-        if (photo == null) {
-          setState(() => _status = 'Cancelled');
-          return;
+      final File? photo = await CameraService.takePicture();
+      if (!mounted) return;
+      if (photo == null) {
+        setState(() => _status = 'Cancelled');
+        return;
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      final isRestricted = prefs.getBool('phone_restriction') ?? false;
+      List<Map<String, dynamic>> appUsages = [];
+
+      // Track app usage if phone restriction is enabled
+      if (isRestricted) {
+        setState(() => _status = 'Compiling App Usage...');
+        final checkInTimeStr = prefs.getString('check_in_time');
+        DateTime checkInTime;
+        if (checkInTimeStr != null && checkInTimeStr.isNotEmpty) {
+          checkInTime = DateTime.tryParse(checkInTimeStr) ?? DateTime.now().subtract(const Duration(hours: 1));
+        } else {
+          checkInTime = DateTime.now().subtract(const Duration(hours: 1));
         }
+
+        appUsages = await AppUsageService.getAppUsageList(checkInTime, DateTime.now());
       }
 
       setState(() => _status = 'Processing Check-out...');
       
-      final res = await ApiService.checkOut(pos.latitude, pos.longitude, photo, isAutoTrap: isAutoTrap);
+      final res = await ApiService.checkOut(
+        pos.latitude, 
+        pos.longitude, 
+        photo,
+        appUsages: appUsages,
+      );
       if (!mounted) return;
 
       if (res.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
         final today = DateTime.now().toIso8601String().split('T')[0];
         await prefs.setBool('is_checked_in', false);
         await prefs.setString('last_action_date', today);
-        
-        // Ensure Kiosk Mode is stopped on Check-out
-        final isRestricted = prefs.getBool('phone_restriction') ?? false;
-        if (isRestricted) {
-          await stopKioskMode();
-        }
+        await prefs.remove('check_in_time');
         
         setState(() {
           _isCheckedIn = false;
@@ -664,27 +489,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         _updatePipState();
 
         if (mounted) {
-          if (isAutoTrap) {
-            CustomAlertDialog.show(
-              context, 
-              title: "Policy Violation", 
-              message: "You unpinned the app. You have been automatically checked out.",
-              type: AlertType.error
-            );
-          } else {
-            AttendanceSuccessDialog.show(
-              context, 
-              title: "Check-out Successful", 
-              message: "Your session has ended. Thank you for your hard work today!"
-            );
-          }
+          AttendanceSuccessDialog.show(
+            context, 
+            title: "Check-out Successful", 
+            message: "Your session has ended. Thank you for your hard work today!"
+          );
         }
       } else {
         final error = json.decode(res.body)['error'] ?? 'Check-out Rejected';
         _showError(error);
       }
     } catch (e) {
-      _showError('Connection error');
+      _showError('Connection error: $e');
     } finally {
       setState(() => _isChecking = false);
     }
@@ -778,20 +594,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
     return PopScope(
       canPop: !_isCheckedIn && !isCompleted,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        if (_isCheckedIn) {
-          final prefs = await SharedPreferences.getInstance();
-          final isRestricted = prefs.getBool('phone_restriction') ?? false;
-          if (isRestricted && !_isHandlingCall && !_isLunchTime()) {
-            final mode = await getKioskMode();
-            if (mode == KioskMode.disabled) {
-              debugPrint("User pressed back while unpinned in restricted zone! Auto checking out...");
-              await _handlePinningViolation();
-            }
-          }
-        }
-      },
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(
@@ -948,16 +750,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                 GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const OutsideAttendanceScreen())),
                   child: Container(
+                    margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.orange.withValues(alpha: 0.2))),
-                    child: const Text("OUTSIDE ATTENDANCE", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.orange)),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.directions_run_rounded, size: 14, color: Colors.orange),
+                        SizedBox(width: 4),
+                        Text("OUTSIDE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.orange)),
+                      ],
+                    ),
                   ),
                 ),
-              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _isCheckedIn ? Colors.red.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
+                  color: (_isCheckedIn ? Colors.red : Colors.green).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: (_isCheckedIn ? Colors.red : Colors.green).withValues(alpha: 0.2)),
                 ),

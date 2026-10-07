@@ -1,39 +1,35 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://projectattendance.com/api';
-  // static const String baseUrl = '127.0.0.1/api';
-
-  static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
-  }
+  // BASE URL Configuration
+  static const String baseUrl = 'https://portal.projectattendance.com/api';
 
   static Future<Map<String, String>> getHeaders() async {
-    String? token = await getToken();
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
+      if (token != null) 'Authorization': 'Bearer $token',
     };
   }
 
   static Future<Map<String, String>> getMultipartHeaders() async {
-    String? token = await getToken();
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
     return {
       'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
+      if (token != null) 'Authorization': 'Bearer $token',
     };
   }
 
   static Future<http.Response> login(String email, String password) async {
     final deviceName = await _getDeviceName();
-    
     String? fcmToken;
     try {
       fcmToken = await FirebaseMessaging.instance.getToken();
@@ -108,7 +104,7 @@ class ApiService {
     double lat,
     double lng,
     File? image, {
-    bool isAutoTrap = false,
+    List<Map<String, dynamic>>? appUsages,
   }) async {
     var request = http.MultipartRequest(
       'POST',
@@ -120,8 +116,8 @@ class ApiService {
     request.fields['longitude'] = lng.toString();
     request.fields['timestamp'] = DateTime.now().toIso8601String();
     
-    if (isAutoTrap) {
-      request.fields['is_auto_trap'] = '1';
+    if (appUsages != null && appUsages.isNotEmpty) {
+      request.fields['app_usages'] = jsonEncode(appUsages);
     }
 
     if (image != null) {
@@ -161,7 +157,7 @@ class ApiService {
     File? image,
     String? location,
     String? reason, {
-    bool isAutoTrap = false,
+    List<Map<String, dynamic>>? appUsages,
   }) async {
     var request = http.MultipartRequest(
       'POST',
@@ -175,8 +171,8 @@ class ApiService {
     if (location != null) request.fields['checkout_location'] = location;
     if (reason != null) request.fields['reason'] = reason;
     
-    if (isAutoTrap) {
-      request.fields['is_auto_trap'] = '1';
+    if (appUsages != null && appUsages.isNotEmpty) {
+      request.fields['app_usages'] = jsonEncode(appUsages);
     }
 
     if (image != null) {
