@@ -61,9 +61,21 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
   }
 
   void _showAppUsageDialog(BuildContext context, String employeeName, dynamic usages) {
-    if (usages == null || (usages is! List) || usages.isEmpty) {
-      return;
+    if (usages == null) return;
+    
+    List<dynamic> summaryList = [];
+    String? totalDuration;
+
+    if (usages is Map) {
+      if (usages['summary'] is List) {
+        summaryList = usages['summary'];
+      }
+      totalDuration = usages['total_tracked_formatted']?.toString();
+    } else if (usages is List) {
+      summaryList = usages;
     }
+
+    if (summaryList.isEmpty) return;
 
     const Color bgDark = Color(0xFF121212);
     const Color cardDark = Color(0xFF1E1E1E);
@@ -78,8 +90,8 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
       ),
       builder: (context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          maxChildSize: 0.85,
+          initialChildSize: 0.65,
+          maxChildSize: 0.9,
           minChildSize: 0.4,
           expand: false,
           builder: (context, scrollController) {
@@ -118,25 +130,40 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
                           ],
                         ),
                       ),
+                      if (totalDuration != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            'Total: $totalDuration',
+                            style: const TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   const Divider(color: Colors.white12),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
-                    'Apps used during work session (${usages.length}):',
+                    'Apps used during work session (${summaryList.length}):',
                     style: TextStyle(color: Colors.grey[400], fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 10),
                   Expanded(
                     child: ListView.builder(
                       controller: scrollController,
-                      itemCount: usages.length,
+                      itemCount: summaryList.length,
                       itemBuilder: (context, idx) {
-                        final item = usages[idx];
+                        final item = summaryList[idx];
                         final appName = item['app_name'] ?? item['package_name'] ?? 'Unknown App';
                         final packageName = item['package_name'] ?? '';
-                        final formatted = item['usage_formatted'] ?? '${item['usage_seconds'] ?? 0}s';
+                        final beforeFmt = item['before_lunch_formatted']?.toString();
+                        final afterFmt = item['after_lunch_formatted']?.toString();
+                        final totalFmt = item['total_formatted'] ?? item['usage_formatted'] ?? '${item['total_seconds'] ?? item['usage_seconds'] ?? 0}s';
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
@@ -146,46 +173,83 @@ class _TodayPresentScreenState extends State<TodayPresentScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.grey[850]!),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blueAccent.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.apps_rounded, color: Colors.blueAccent, size: 18),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      appName,
-                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blueAccent.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
                                     ),
-                                    if (packageName.isNotEmpty)
-                                      Text(
-                                        packageName,
-                                        style: TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'monospace'),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                    child: const Icon(Icons.apps_rounded, color: Colors.blueAccent, size: 18),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          appName,
+                                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                        ),
+                                        if (packageName.isNotEmpty)
+                                          Text(
+                                            packageName,
+                                            style: TextStyle(color: Colors.grey[600], fontSize: 10, fontFamily: 'monospace'),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blueAccent.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      totalFmt,
+                                      style: const TextStyle(color: Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (beforeFmt != null || afterFmt != null) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    if (beforeFmt != null && beforeFmt != '0s')
+                                      Container(
+                                        margin: const EdgeInsets.only(right: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Pre-Lunch: $beforeFmt',
+                                          style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    if (afterFmt != null && afterFmt != '0s')
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.cyanAccent.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Post-Lunch: $afterFmt',
+                                          style: const TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                                        ),
                                       ),
                                   ],
                                 ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.blueAccent.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  formatted,
-                                  style: const TextStyle(color: Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              ),
+                              ],
                             ],
                           ),
                         );

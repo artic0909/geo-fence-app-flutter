@@ -127,7 +127,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
             flutterLocalNotificationsPlugin.show(
               id: 887,
               title: 'Lunch Time Started 🍔',
-              body: 'Enjoy your lunch break!',
+              body: 'Enjoy your lunch break! Phone usage tracking is paused during lunch.',
+              notificationDetails: const NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'lunch_alerts',
+                  'Lunch Alerts',
+                  importance: Importance.max,
+                  priority: Priority.high,
+                ),
+              ),
+            );
+            _syncBeforeLunchUsage();
+          }
+          _wasLunchTime = true;
+        } else {
+          if (_wasLunchTime) {
+            _wasLunchTime = false;
+            _lunchNotificationSent = false;
+            final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+            flutterLocalNotificationsPlugin.show(
+              id: 889,
+              title: 'Lunch Break Ended ⏰',
+              body: 'Lunch time is over. Duty and phone usage tracking resumed.',
               notificationDetails: const NotificationDetails(
                 android: AndroidNotificationDetails(
                   'lunch_alerts',
@@ -138,15 +159,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
               ),
             );
           }
-          _wasLunchTime = true;
-        } else {
-          if (_wasLunchTime) {
-            _wasLunchTime = false;
-            _lunchNotificationSent = false;
-          }
         }
       }
     });
+  }
+
+
+  Future<void> _syncBeforeLunchUsage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isRestricted = prefs.getBool('phone_restriction') ?? false;
+      if (!isRestricted) return;
+
+      final checkInTimeStr = prefs.getString('check_in_time');
+      if (checkInTimeStr == null || checkInTimeStr.isEmpty) return;
+      final checkInTime = DateTime.tryParse(checkInTimeStr);
+      if (checkInTime == null) return;
+
+      final lunchStartStr = _selectedGeofence?['lunch_start_time']?.toString();
+      final lunchEndStr = _selectedGeofence?['lunch_end_time']?.toString();
+
+      final beforeLunchData = await AppUsageService.getStructuredAppUsage(
+        checkInTime,
+        DateTime.now(),
+        lunchStartTime: lunchStartStr,
+        lunchEndTime: lunchEndStr,
+      );
+
+      await ApiService.syncAppUsage(beforeLunchData);
+      debugPrint("Mid-day Before Lunch Usage Synced to Server Successfully!");
+    } catch (e) {
+      debugPrint("Error syncing before lunch usage: $e");
+    }
   }
 
   Future<void> _initializeApp() async {
@@ -449,9 +493,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
       final prefs = await SharedPreferences.getInstance();
       final isRestricted = prefs.getBool('phone_restriction') ?? false;
-      List<Map<String, dynamic>> appUsages = [];
+      dynamic appUsagesPayload;
 
-      // Track app usage if phone restriction is enabled
+      // Track app usage split by Before Lunch & After Lunch if phone restriction is enabled
       if (isRestricted) {
         setState(() => _status = 'Compiling App Usage...');
         final checkInTimeStr = prefs.getString('check_in_time');
@@ -462,7 +506,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           checkInTime = DateTime.now().subtract(const Duration(hours: 1));
         }
 
-        appUsages = await AppUsageService.getAppUsageList(checkInTime, DateTime.now());
+        final lunchStartStr = _selectedGeofence?['lunch_start_time']?.toString();
+        final lunchEndStr = _selectedGeofence?['lunch_end_time']?.toString();
+
+        appUsagesPayload = await AppUsageService.getStructuredAppUsage(
+          checkInTime,
+          DateTime.now(),
+          lunchStartTime: lunchStartStr,
+          lunchEndTime: lunchEndStr,
+        );
       }
 
       setState(() => _status = 'Processing Check-out...');
@@ -471,7 +523,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         pos.latitude, 
         pos.longitude, 
         photo,
-        appUsages: appUsages,
+        appUsages: appUsagesPayload,
       );
       if (!mounted) return;
 

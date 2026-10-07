@@ -104,7 +104,7 @@ class ApiService {
     double lat,
     double lng,
     File? image, {
-    List<Map<String, dynamic>>? appUsages,
+    dynamic appUsages,
   }) async {
     var request = http.MultipartRequest(
       'POST',
@@ -157,7 +157,7 @@ class ApiService {
     File? image,
     String? location,
     String? reason, {
-    List<Map<String, dynamic>>? appUsages,
+    dynamic appUsages,
   }) async {
     var request = http.MultipartRequest(
       'POST',
@@ -180,6 +180,23 @@ class ApiService {
     }
 
     return await http.Response.fromStream(await request.send());
+  }
+
+  
+  static Future<http.Response> syncAppUsage(dynamic appUsages) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/sync-app-usage'),
+        body: jsonEncode({
+          'app_usages': appUsages,
+        }),
+        headers: await getHeaders(),
+      );
+      return response;
+    } catch (e) {
+      debugPrint('Sync App Usage Error: $e');
+      rethrow;
+    }
   }
 
   static Future<http.Response> getEmployeeData() async {

@@ -366,7 +366,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
 
       final prefs = await SharedPreferences.getInstance();
       final isRestricted = prefs.getBool('phone_restriction') ?? false;
-      List<Map<String, dynamic>> appUsages = [];
+      dynamic appUsagesPayload;
 
       // Track app usage if phone restriction is enabled
       if (isRestricted) {
@@ -379,7 +379,10 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           checkInTime = DateTime.now().subtract(const Duration(hours: 1));
         }
 
-        appUsages = await AppUsageService.getAppUsageList(checkInTime, DateTime.now());
+        appUsagesPayload = await AppUsageService.getStructuredAppUsage(
+          checkInTime,
+          DateTime.now(),
+        );
       }
 
       setState(() => _status = 'Processing Outside Check-out...');
@@ -389,7 +392,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
         photo, 
         locationDesc, 
         null,
-        appUsages: appUsages,
+        appUsages: appUsagesPayload,
       );
       if (!mounted) return;
 
