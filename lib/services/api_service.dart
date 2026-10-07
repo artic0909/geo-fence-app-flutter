@@ -7,11 +7,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 class ApiService {
   // BASE URL Configuration
-  static const String baseUrl = 'https://portal.projectattendance.com/api';
+  static const String baseUrl = 'https://projectattendance.com/api';
 
   static Future<Map<String, String>> getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = prefs.getString('token') ?? prefs.getString('auth_token');
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -21,7 +21,7 @@ class ApiService {
 
   static Future<Map<String, String>> getMultipartHeaders() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = prefs.getString('token') ?? prefs.getString('auth_token');
     return {
       'Accept': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
