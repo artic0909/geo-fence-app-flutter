@@ -170,6 +170,7 @@ class AppUsageService {
     String? lunchStartTime,
     String? lunchEndTime,
     String keyPrefix = 'check_in',
+    bool isFinalCheckout = false,
   }) async {
     if (!Platform.isAndroid) {
       return {
@@ -353,11 +354,12 @@ class AppUsageService {
 
     int totalTrackedSeconds = summaryList.fold(0, (acc, item) => acc + (item['total_seconds'] as int));
 
-    // Clear baselines from SharedPreferences after checkout
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('${keyPrefix}_app_baseline');
-    await prefs.remove('${keyPrefix}_lunch_start_app_baseline');
-    await prefs.remove('${keyPrefix}_lunch_end_app_baseline');
+    if (isFinalCheckout) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('${keyPrefix}_app_baseline');
+      await prefs.remove('${keyPrefix}_lunch_start_app_baseline');
+      await prefs.remove('${keyPrefix}_lunch_end_app_baseline');
+    }
 
     return {
       'before_lunch': beforeLunchList,

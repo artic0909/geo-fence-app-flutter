@@ -386,6 +386,7 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
           checkInTime,
           DateTime.now(),
           keyPrefix: 'outside_check_in',
+          isFinalCheckout: true,
         );
       }
 

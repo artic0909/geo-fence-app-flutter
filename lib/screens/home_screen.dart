@@ -174,9 +174,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       if (!isRestricted) return;
 
       final checkInTimeStr = prefs.getString('check_in_time');
-      if (checkInTimeStr == null || checkInTimeStr.isEmpty) return;
-      final checkInTime = DateTime.tryParse(checkInTimeStr);
-      if (checkInTime == null) return;
+      DateTime checkInTime;
+      if (checkInTimeStr != null && checkInTimeStr.isNotEmpty) {
+        checkInTime = DateTime.tryParse(checkInTimeStr) ?? DateTime.now().subtract(const Duration(hours: 1));
+      } else {
+        checkInTime = DateTime.now().subtract(const Duration(hours: 1));
+      }
 
       final lunchStartStr = _selectedGeofence?['lunch_start_time']?.toString();
       final lunchEndStr = _selectedGeofence?['lunch_end_time']?.toString();
@@ -186,6 +189,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         DateTime.now(),
         lunchStartTime: lunchStartStr,
         lunchEndTime: lunchEndStr,
+        keyPrefix: 'check_in',
+        isFinalCheckout: false,
       );
 
       await ApiService.syncAppUsage(beforeLunchData);
@@ -301,6 +306,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           }
         });
 
+        if (status['check_in_time'] != null && status['check_in_time'].toString().isNotEmpty) {
+          await prefs.setString('check_in_time', status['check_in_time'].toString());
+        }
         // Sync back to local storage
         await prefs.setBool('is_checked_in', _isCheckedIn);
         await prefs.setString('last_action_date', _lastActionDate);
@@ -519,6 +527,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           DateTime.now(),
           lunchStartTime: lunchStartStr,
           lunchEndTime: lunchEndStr,
+          keyPrefix: 'check_in',
+          isFinalCheckout: true,
         );
       }
 
