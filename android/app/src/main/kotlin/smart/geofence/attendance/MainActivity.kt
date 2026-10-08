@@ -7,6 +7,12 @@ import android.os.Build
 import android.app.PictureInPictureParams
 import android.util.Rational
 import android.content.res.Configuration
+import android.app.AppOpsManager
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import android.net.Uri
+import android.os.Process
 
 class MainActivity: FlutterFragmentActivity() {
     private val PIP_CHANNEL = "smart.geofence/pip"
@@ -17,11 +23,55 @@ class MainActivity: FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PIP_CHANNEL)
         methodChannel?.setMethodCallHandler { call, result ->
-            if (call.method == "setPipAllowed") {
-                pipAllowed = call.argument<Boolean>("allowed") == true
-                result.success(null)
+            when (call.method) {
+                "setPipAllowed" -> {
+                    pipAllowed = call.argument<Boolean>("allowed") == true
+                    result.success(null)
+                }
+                "isUsageAccessGranted" -> {
+                    result.success(isUsageAccessGranted())
+                }
+                "openUsageAccessSettings" -> {
+                    openUsageAccessSettings()
+                    result.success(true)
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+    }
+
+    private fun isUsageAccessGranted(): Boolean {
+        return try {
+            val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
             } else {
-                result.notImplemented()
+                @Suppress("DEPRECATION")
+                appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
+            }
+            mode == AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun openUsageAccessSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(intent)
+            } catch (e2: Exception) {
+                // Fallback
             }
         }
     }

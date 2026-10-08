@@ -1,3 +1,5 @@
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -85,16 +87,37 @@ class AppUsageService {
     return formatDuration(Duration(seconds: totalSeconds));
   }
 
+  static const MethodChannel _channel = MethodChannel('smart.geofence/pip');
+
   /// Check whether app usage stats permission is active
   static Future<bool> checkPermission() async {
     if (!Platform.isAndroid) return true;
     try {
+      final bool? granted = await _channel.invokeMethod<bool>('isUsageAccessGranted');
+      if (granted != null) return granted;
+    } catch (_) {
+      // Channel not yet initialized in current process
+    }
+
+    try {
       final now = DateTime.now();
       await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 5)), now);
       return true;
-    } catch (e) {
-      debugPrint("AppUsage permission check error: $e");
+    } catch (_) {
       return false;
+    }
+  }
+
+  /// Open Android Usage Access Settings screen directly
+  static Future<void> openUsageSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('openUsageAccessSettings');
+    } catch (e) {
+      debugPrint("Native usage settings channel not yet active, opening App Settings: $e");
+      try {
+        await openAppSettings();
+      } catch (_) {}
     }
   }
 

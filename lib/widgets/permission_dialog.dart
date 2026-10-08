@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/app_usage_service.dart';
 
 class PermissionDialog extends StatefulWidget {
   final VoidCallback onAllGranted;
@@ -14,7 +17,14 @@ class PermissionDialog extends StatefulWidget {
     bool battery = await Permission.ignoreBatteryOptimizations.isGranted;
     bool camPerm = await Permission.camera.isGranted;
 
-    if (locService && locPerm && locAlways && battery && camPerm) {
+    final prefs = await SharedPreferences.getInstance();
+    final bool isPhoneRestricted = prefs.getBool('phone_restriction') ?? false;
+    bool usagePerm = true;
+    if (Platform.isAndroid && isPhoneRestricted) {
+      usagePerm = await AppUsageService.checkPermission();
+    }
+
+    if (locService && locPerm && locAlways && battery && camPerm && usagePerm) {
       onAllGranted();
     } else {
       if (!context.mounted) return;
@@ -36,6 +46,8 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
   bool _locAlways = false;
   bool _battery = false;
   bool _camPerm = false;
+  bool _usagePerm = false;
+  bool _isPhoneRestricted = false;
 
   @override
   void initState() {
@@ -64,6 +76,13 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
     bool battery = await Permission.ignoreBatteryOptimizations.isGranted;
     bool camPerm = await Permission.camera.isGranted;
 
+    final prefs = await SharedPreferences.getInstance();
+    final bool isPhoneRestricted = prefs.getBool('phone_restriction') ?? false;
+    bool usagePerm = true;
+    if (Platform.isAndroid && isPhoneRestricted) {
+      usagePerm = await AppUsageService.checkPermission();
+    }
+
     if (mounted) {
       setState(() {
         _locService = locService;
@@ -71,9 +90,11 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
         _locAlways = locAlways;
         _battery = battery;
         _camPerm = camPerm;
+        _usagePerm = usagePerm;
+        _isPhoneRestricted = isPhoneRestricted;
       });
 
-      if (_locService && _locPerm && _locAlways && _battery && _camPerm) {
+      if (_locService && _locPerm && _locAlways && _battery && _camPerm && _usagePerm) {
         Navigator.pop(context);
         widget.onAllGranted();
       }
@@ -102,6 +123,10 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
   Future<void> _requestCameraPermission() async {
     await Permission.camera.request();
     _checkPermissions();
+  }
+
+  Future<void> _requestUsagePermission() async {
+    await AppUsageService.openUsageSettings();
   }
 
   Widget _buildPermItem(String title, String desc, bool isGranted, IconData icon, VoidCallback onGrant) {
@@ -185,8 +210,10 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
             _buildPermItem("GPS Service", "Turn on device location", _locService, Icons.gps_fixed, _requestLocationService),
             _buildPermItem("Location Access", "Allow app to see location", _locPerm, Icons.location_on_rounded, _requestLocationPermission),
             _buildPermItem("Background Location", "Select 'Allow all the time'", _locAlways, Icons.my_location_rounded, _requestLocationAlwaysPermission),
-            _buildPermItem("Battery Optimize", "Allow background running", _battery, Icons.battery_charging_full_rounded, _requestBatteryPermission),
+            _buildPermItem("Battery Optimize", "Allow For Optimization", _battery, Icons.battery_charging_full_rounded, _requestBatteryPermission),
             _buildPermItem("Camera Access", "Allow app to take selfie", _camPerm, Icons.camera_alt_rounded, _requestCameraPermission),
+            if (_isPhoneRestricted && Platform.isAndroid)
+              _buildPermItem("App Usage Access", "Allow app usage data", _usagePerm, Icons.insights_rounded, _requestUsagePermission),
           ],
         ),
       ),

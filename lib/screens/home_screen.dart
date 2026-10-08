@@ -438,9 +438,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       final prefs = await SharedPreferences.getInstance();
       final isRestricted = prefs.getBool('phone_restriction') ?? false;
 
-      // If phone restriction is active, prompt usage permission check
+      // If phone restriction is active, require Usage Access permission before proceeding
       if (isRestricted) {
-        await AppUsageService.checkPermission();
+        final bool hasUsageAccess = await AppUsageService.checkPermission();
+        if (!hasUsageAccess) {
+          setState(() {
+            _isChecking = false;
+            _status = 'Usage permission required';
+          });
+          if (mounted) {
+            PermissionDialog.checkAndShow(context, _continueToggleAttendance);
+          }
+          return;
+        }
       }
 
       setState(() => _status = 'Verifying Check-in...');

@@ -296,7 +296,17 @@ class _OutsideAttendanceScreenState extends State<OutsideAttendanceScreen> with 
       final isRestricted = prefs.getBool('phone_restriction') ?? false;
 
       if (isRestricted) {
-        await AppUsageService.checkPermission();
+        final bool hasUsageAccess = await AppUsageService.checkPermission();
+        if (!hasUsageAccess) {
+          setState(() {
+            _isChecking = false;
+            _status = 'Usage permission required';
+          });
+          if (mounted) {
+            PermissionDialog.checkAndShow(context, _continueToggleOutsideAttendance);
+          }
+          return;
+        }
       }
 
       setState(() => _status = 'Verifying Outside Check-in...');
