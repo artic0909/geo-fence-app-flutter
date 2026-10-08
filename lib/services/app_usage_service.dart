@@ -263,8 +263,8 @@ class AppUsageService {
 
       int currentCumulative = checkOutSnapshot[pkg] ?? 0;
       
-      // If checkInBaseline exists, use it; otherwise fallback to 0 delta if app was not actively used
-      int baselineCumulative = checkInBaseline.containsKey(pkg) ? checkInBaseline[pkg]! : currentCumulative;
+      // True baseline: if the app was used before check-in, subtract baseline; if not, baseline is 0s
+      int baselineCumulative = checkInBaseline[pkg] ?? 0;
       int totalDelta = (currentCumulative - baselineCumulative).clamp(0, totalSessionElapsedSeconds);
 
       if (totalDelta <= 0) continue;
@@ -275,10 +275,10 @@ class AppUsageService {
 
         if (beforeDutyWindowSeconds > 0 && afterDutyWindowSeconds > 0) {
           // Both sessions were active
-          if (lunchStartSnapshot.isNotEmpty && lunchStartSnapshot.containsKey(pkg)) {
-            int lStart = lunchStartSnapshot[pkg]!;
+          if (lunchStartSnapshot.isNotEmpty) {
+            int lStart = lunchStartSnapshot[pkg] ?? baselineCumulative;
             bDelta = (lStart - baselineCumulative).clamp(0, beforeDutyWindowSeconds);
-            int lEnd = lunchEndBaseline.containsKey(pkg) ? lunchEndBaseline[pkg]! : lStart;
+            int lEnd = lunchEndBaseline[pkg] ?? lStart;
             aDelta = (currentCumulative - lEnd).clamp(0, afterDutyWindowSeconds);
           } else {
             // Split proportionally based on window sizes
@@ -311,6 +311,26 @@ class AppUsageService {
     if (sumAfter > afterDutyWindowSeconds && afterDutyWindowSeconds > 0) {
       double scale = afterDutyWindowSeconds / sumAfter;
       appAfterDeltas.updateAll((pkg, val) => math.max(1, (val * scale).floor()));
+    }
+
+    // Read cached before-lunch records if available
+    final prefs = await SharedPreferences.getInstance();
+    final String? cachedBeforeJson = prefs.getString('${keyPrefix}_cached_before_lunch');
+    if (cachedBeforeJson != null && cachedBeforeJson.isNotEmpty) {
+      try {
+        final List<dynamic> cachedList = jsonDecode(cachedBeforeJson);
+        for (final item in cachedList) {
+          final String pkg = item['package_name']?.toString() ?? '';
+          final int secs = int.tryParse(item['usage_seconds']?.toString() ?? '0') ?? 0;
+          if (pkg.isNotEmpty && secs > 0) {
+            if (!appBeforeDeltas.containsKey(pkg) || appBeforeDeltas[pkg]! < secs) {
+              appBeforeDeltas[pkg] = secs;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Error reading cached before lunch usage: $e");
+      }
     }
 
     // 5. Build structured lists and summary
@@ -377,11 +397,15 @@ class AppUsageService {
 
     int totalTrackedSeconds = summaryList.fold(0, (acc, item) => acc + (item['total_seconds'] as int));
 
+    if (!isFinalCheckout && beforeLunchList.isNotEmpty) {
+      await prefs.setString('${keyPrefix}_cached_before_lunch', jsonEncode(beforeLunchList));
+    }
+
     if (isFinalCheckout) {
-      final prefs = await SharedPreferences.getInstance();
       await prefs.remove('${keyPrefix}_app_baseline');
       await prefs.remove('${keyPrefix}_lunch_start_app_baseline');
       await prefs.remove('${keyPrefix}_lunch_end_app_baseline');
+      await prefs.remove('${keyPrefix}_cached_before_lunch');
     }
 
     return {
