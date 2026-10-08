@@ -184,37 +184,64 @@ class _PermissionDialogState extends State<PermissionDialog> with WidgetsBinding
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
       backgroundColor: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("REQUIRED PERMISSIONS", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black, letterSpacing: 0.5)),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
-                    child: const Icon(Icons.close, size: 14),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "REQUIRED PERMISSIONS",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+                      child: const Icon(Icons.close, size: 14),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Please allow these permissions to successfully mark your attendance.",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildPermItem("GPS Service", "Turn on device location", _locService, Icons.gps_fixed, _requestLocationService),
+                      _buildPermItem("Location Access", "Allow app to see location", _locPerm, Icons.location_on_rounded, _requestLocationPermission),
+                      _buildPermItem("Background Location", "Select 'Allow all the time'", _locAlways, Icons.my_location_rounded, _requestLocationAlwaysPermission),
+                      _buildPermItem("Battery Optimize", "Allow For Optimization", _battery, Icons.battery_charging_full_rounded, _requestBatteryPermission),
+                      _buildPermItem("Camera Access", "Allow app to take selfie", _camPerm, Icons.camera_alt_rounded, _requestCameraPermission),
+                      if (_isPhoneRestricted && Platform.isAndroid)
+                        _buildPermItem("App Usage Access", "Allow app usage data", _usagePerm, Icons.insights_rounded, _requestUsagePermission),
+                    ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text("Please allow these permissions to successfully mark your attendance.", style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.4)),
-            const SizedBox(height: 24),
-            _buildPermItem("GPS Service", "Turn on device location", _locService, Icons.gps_fixed, _requestLocationService),
-            _buildPermItem("Location Access", "Allow app to see location", _locPerm, Icons.location_on_rounded, _requestLocationPermission),
-            _buildPermItem("Background Location", "Select 'Allow all the time'", _locAlways, Icons.my_location_rounded, _requestLocationAlwaysPermission),
-            _buildPermItem("Battery Optimize", "Allow For Optimization", _battery, Icons.battery_charging_full_rounded, _requestBatteryPermission),
-            _buildPermItem("Camera Access", "Allow app to take selfie", _camPerm, Icons.camera_alt_rounded, _requestCameraPermission),
-            if (_isPhoneRestricted && Platform.isAndroid)
-              _buildPermItem("App Usage Access", "Allow app usage data", _usagePerm, Icons.insights_rounded, _requestUsagePermission),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
